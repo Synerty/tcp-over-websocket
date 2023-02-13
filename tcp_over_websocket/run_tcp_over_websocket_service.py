@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 from twisted.internet.defer import Deferred
@@ -7,12 +8,12 @@ from txhttputil.util.PemUtil import generateDiffieHellmanParameterBytes
 from vortex.DeferUtil import vortexLogFailure
 from vortex.VortexFactory import VortexFactory
 
-from tcp_over_websocket.config.file_config import fileConfig
 from tcp_over_websocket.tcp_tunnel.tcp_tunnel_connect import TcpTunnelConnect
 from tcp_over_websocket.tcp_tunnel.tcp_tunnel_listen import TcpTunnelListen
 from tcp_over_websocket.util.log_util import setupLogger
 from tcp_over_websocket.util.vortex_util import CLIENT_VORTEX_NAME
 from tcp_over_websocket.util.vortex_util import SERVER_VORTEX_NAME
+from tcp_over_websocket.config import file_config
 
 # Setup the logger to catch the startup.
 setupLogger()
@@ -28,6 +29,7 @@ WEBSOCKET_URL_PATH = "vortexws"
 
 
 def serveVortexServer():
+    fileConfig = file_config.FileConfig()
 
     platformSiteRoot = BasicResource()
 
@@ -41,7 +43,7 @@ def serveVortexServer():
     dataExchange = fileConfig.dataExchange
 
     # generate diffie-hellman parameter for tls v1.2 if not exists
-    dhPemFile = Path(fileConfig.homePath) / "dhparam.pem"
+    dhPemFile = Path(fileConfig.homePath()) / "dhparam.pem"
     dhPemFilePath = str(dhPemFile.absolute())
 
     if dataExchange.serverEnableSsl and not dhPemFile.exists():
@@ -54,7 +56,7 @@ def serveVortexServer():
     setupSite(
         "Data Exchange",
         platformSiteRoot,
-        portNum=dataExchange.sitePort,
+        portNum=dataExchange.serverPort,
         enableLogin=False,
         enableSsl=dataExchange.serverEnableSsl,
         sslBundleFilePath=dataExchange.serverTLSKeyCertCaRootBundleFilePath,
@@ -68,6 +70,7 @@ def serveVortexServer():
 
 
 def connectVortexClient() -> Deferred:
+    fileConfig = file_config.FileConfig()
     dataExchangeCfg = fileConfig.dataExchange
 
     scheme = "wss" if dataExchangeCfg.serverEnableSsl else "ws"
@@ -87,23 +90,27 @@ def connectVortexClient() -> Deferred:
 
 
 def setupLogging():
+    fileConfig = file_config.FileConfig()
     # Set default logging level
-    logging.root.setLevel(fileConfig.loggingLevel)
+    logging.root.setLevel(fileConfig.logging.loggingLevel)
 
     from tcp_over_websocket.util.log_util import updateLoggerHandlers
 
+    logFileName = str(Path(fileConfig.homePath()) / "tcp_over_websocket.log")
+
     updateLoggerHandlers(
-        fileConfig.daysToKeep,
-        fileConfig.logToStdout,
+        fileConfig.logging.daysToKeep,
+        fileConfig.logging.logToStdout,
+        logFileName,
     )
 
-    if fileConfig.loggingLogToSyslogHost:
+    if fileConfig.logging.loggingLogToSyslogHost:
         from tcp_over_websocket.util.log_util import setupLoggingToSyslogServer
 
         setupLoggingToSyslogServer(
-            fileConfig.loggingLogToSyslogHost,
-            fileConfig.loggingLogToSyslogPort,
-            fileConfig.loggingLogToSyslogFacility,
+            fileConfig.logging.loggingLogToSyslogHost,
+            fileConfig.logging.loggingLogToSyslogPort,
+            fileConfig.logging.loggingLogToSyslogFacility,
         )
 
     # Enable deferred debugging if DEBUG is on.
@@ -112,10 +119,13 @@ def setupLogging():
 
 
 def main():
+    fileConfig = file_config.FileConfig()
     # defer.setDebugging(True)
     # sys.argv.remove(DEBUG_ARG)
     # import pydevd
     # pydevd.settrace(suspend=False)
+
+    setupLogging()
 
     # Make sure we restart if the vortex goes offline
     def restart(_=None):
@@ -130,7 +140,7 @@ def main():
     )
 
     otherVortexName = (
-        SERVER_VORTEX_NAME if fileConfig.weAreServer else CLIENT_VORTEX_NAME
+        CLIENT_VORTEX_NAME if fileConfig.weAreServer else SERVER_VORTEX_NAME
     )
     tcpHandlers = []
     tcpHandlers.extend(
@@ -170,7 +180,7 @@ def main():
     d.addCallback(startTunnels)
     d.addCallback(startedSuccessfully)
 
-    def shutdownTunnels(_):
+    def shutdownTunnels():
         for tcpHandler in tcpHandlers:
             tcpHandler.shutdown()
 
@@ -180,4 +190,9 @@ def main():
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 2:
+        assert Path(sys.argv[1]).is_dir(), "Passed argument is not a directory"
+
+        file_config.FileConfig.setHomePath(sys.argv[1])
+
     main()

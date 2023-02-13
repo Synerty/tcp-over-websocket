@@ -17,6 +17,15 @@ class FileConfigABC(metaclass=ABCMeta):
     DEFAULT_DIR_CHMOD = 0o700
 
     __instance = None
+    __homePath = os.path.expanduser("~/tcp-over-websocket.home")
+
+    @classmethod
+    def setHomePath(cls, homePath: str):
+        FileConfigABC.__homePath = homePath
+
+    @classmethod
+    def homePath(cls) -> str:
+        return FileConfigABC.__homePath
 
     def __new__(cls):
         if cls.__instance is not None:
@@ -27,13 +36,14 @@ class FileConfigABC(metaclass=ABCMeta):
         return self
 
     def __init__(self):
-        self._homePath = os.path.expanduser("~/tcp-over-websocket.home")
 
-        if not os.path.isdir(self._homePath):
-            assert not os.path.exists(self._homePath)
-            os.makedirs(self._homePath, self.DEFAULT_DIR_CHMOD)
+        if not os.path.isdir(FileConfigABC.__homePath):
+            assert not os.path.exists(FileConfigABC.__homePath)
+            os.makedirs(FileConfigABC.__homePath, self.DEFAULT_DIR_CHMOD)
 
-        self._configFilePath = os.path.join(self._homePath, "config.json")
+        self._configFilePath = os.path.join(
+            FileConfigABC.__homePath, "config.json"
+        )
 
         if not os.path.isfile(self._configFilePath):
             assert not os.path.exists(self._configFilePath)
@@ -41,8 +51,6 @@ class FileConfigABC(metaclass=ABCMeta):
                 fobj.write("{}")
 
         self._cfg = ConfigWithWrapper(self._configFilePath)
-
-        self._homePathAlias = "%(" + self._homePath + ")s"
 
     def _save(self):
         save_config(self._configFilePath, self._cfg)
@@ -52,7 +60,3 @@ class FileConfigABC(metaclass=ABCMeta):
             assert not os.path.exists(path)
             os.makedirs(path, self.DEFAULT_DIR_CHMOD)
         return path
-
-    @property
-    def homePath(self) -> str:
-        return self._homePath

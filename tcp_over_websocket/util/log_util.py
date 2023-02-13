@@ -2,12 +2,10 @@ import gzip
 import logging
 import os
 import sys
-import zlib
-from logging.handlers import RotatingFileHandler, SysLogHandler
+from logging.handlers import SysLogHandler
 from logging.handlers import TimedRotatingFileHandler
 
 from pathlib import Path
-from typing import Optional
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s:%(message)s"
 DATE_FORMAT = "%d-%b-%Y %H:%M:%S"
@@ -39,7 +37,7 @@ def _rotator(source, dest):
     os.remove(source)
 
 
-def updateLoggerHandlers(daysToKeep=28, logToStdout=True):
+def updateLoggerHandlers(daysToKeep: int, logToStdout: bool, lofFileName: str):
     rootLogger = logging.getLogger()
     logFormatter = logging.Formatter(LOG_FORMAT, DATE_FORMAT)
 
@@ -50,12 +48,14 @@ def updateLoggerHandlers(daysToKeep=28, logToStdout=True):
 
         elif not sys.stdout.isatty() and not logToStdout:
             # Remove the stdout handler
-            logger.info("Logging to stdout disabled, see 'logToStdout' in config.json")
+            logger.info(
+                "Logging to stdout disabled, see 'logToStdout' in config.json"
+            )
             rootLogger.removeHandler(handler)
 
-    fileName = str(Path.home() / ("%s.log" % serviceName))
-
-    fh = TimedRotatingFileHandler(fileName, when="midnight", backupCount=daysToKeep)
+    fh = TimedRotatingFileHandler(
+        lofFileName, when="midnight", backupCount=daysToKeep
+    )
     fh.setFormatter(logFormatter)
     fh.rotator = _rotator
     fh.namer = _namer

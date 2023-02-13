@@ -72,6 +72,7 @@ requirements = [
     "vortexpy",
     "txhttputil",
     "json-cfg-rw",
+    "twisted[tls]",
 ]
 
 if isWindows:

@@ -10,15 +10,14 @@ class FileConfigTcpListenTunnel:
 
     @property
     def tunnelName(self) -> str:
-        with self._cfg:
-            return self._node.tunnelName("unique tunnel name", require_string)
+        return self._node["tunnelName"]
 
     @property
     def listenPort(self) -> int:
         with self._cfg:
-            return self._node.listenPort(30102, require_integer)
+            return self._node["listenPort"]
 
     @property
     def listenBindAddress(self) -> str:
         with self._cfg:
-            return self._node.listenBindAddress("127.0.0.1", require_string)
+            return self._node["listenBindAddress"]

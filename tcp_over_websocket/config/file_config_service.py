@@ -1,5 +1,4 @@
 import logging
-from abc import ABCMeta
 from typing import Optional
 
 from jsoncfg.functions import ConfigWithWrapper
@@ -21,11 +20,13 @@ class FileConfigLogging:
             if lvl in logging._nameToLevel:
                 return lvl
 
-            logger.warning("Logging level %s is not valid, defauling to INFO", lvl)
+            logger.warning(
+                "Logging level %s is not valid, defauling to INFO", lvl
+            )
             return "INFO"
 
     @property
-    def logToStdout(self) -> str:
+    def logToStdout(self) -> bool:
         with self._cfg as c:
             return c.logging.logToStdout(False, require_bool)
 

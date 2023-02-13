@@ -9,9 +9,6 @@ from tcp_over_websocket.config.file_config_service import FileConfigLogging
 from tcp_over_websocket.config.file_config_tcp_connect_tunnel import (
     FileConfigTcpConnectTunnel,
 )
-from tcp_over_websocket.config.file_config_tcp_connect_tunnel import (
-    FileConfigTcpTunnel,
-)
 from tcp_over_websocket.config.file_config_tcp_listen_tunnel import (
     FileConfigTcpListenTunnel,
 )
@@ -28,7 +25,7 @@ class FileConfig(FileConfigABC):
         with self._cfg as c:
             return [
                 FileConfigTcpListenTunnel(self._cfg, node)
-                for node in c.tcpTunnelListens(False, require_array)
+                for node in c.tcpTunnelListens([], require_array)
             ]
 
     @property
@@ -36,7 +33,7 @@ class FileConfig(FileConfigABC):
         with self._cfg as c:
             return [
                 FileConfigTcpConnectTunnel(self._cfg, node)
-                for node in c.tcpTunnelConnects(False, require_array)
+                for node in c.tcpTunnelConnects([], require_array)
             ]
 
     @property
@@ -46,6 +43,3 @@ class FileConfig(FileConfigABC):
     @property
     def logging(self) -> FileConfigLogging:
         return FileConfigLogging(self._cfg)
-
-
-fileConfig = FileConfig()

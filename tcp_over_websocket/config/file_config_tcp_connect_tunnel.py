@@ -1,6 +1,4 @@
 from jsoncfg.functions import ConfigWithWrapper
-from jsoncfg.value_mappers import require_integer
-from jsoncfg.value_mappers import require_string
 
 
 class FileConfigTcpConnectTunnel:
@@ -10,15 +8,12 @@ class FileConfigTcpConnectTunnel:
 
     @property
     def tunnelName(self) -> str:
-        with self._cfg:
-            return self._node.tunnelName("unique tunnel name", require_string)
+        return self._node["tunnelName"]
 
     @property
     def connectToPort(self) -> int:
-        with self._cfg:
-            return self._node.connectToPort(False, require_integer)
+        return self._node["connectToPort"]
 
     @property
     def connectToHost(self) -> str:
-        with self._cfg:
-            return self._node.connectToHost(False, require_string)
+        return self._node["connectToHost"]

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -34,10 +35,7 @@ class FileConfigDataExchange:
 
     @property
     def serverTLSKeyCertCaRootBundleFilePath(self) -> Optional[str]:
-        default = (
-            "/path/to/key-cert-ca-root-chain.pem or "
-            "c:\\path\\to\\key-cert-ca-root-chain.pem"
-        )
+        default = self._makeDefaultFile("key-cert-ca-root-chain.pem")
         with self._cfg as c:
             file = c.dataExchange.tlsBundleFilePath(default, require_string)
             if os.path.exists(file):
@@ -51,7 +49,7 @@ class FileConfigDataExchange:
 
     @property
     def mutualTLSTrustedCACertificateBundleFilePath(self) -> Optional[str]:
-        default = "/path/to/trusted-ca.pem or c:\\path\\to\\trusted-ca.pem"
+        default = self._makeDefaultFile("trusted-ca.pem")
         with self._cfg as c:
             file = c.dataExchange.mutualTLSTrustedCACertificateBundleFilePath(
                 default, require_string
@@ -64,9 +62,8 @@ class FileConfigDataExchange:
     def mutualTLSTrustedPeerCertificateBundleFilePath(
         self,
     ) -> Optional[str]:
-        default = (
-            "/path/to/certs-of-peers.pem or c:\\path\\to\\certs-of-peers.pem"
-        )
+        default = self._makeDefaultFile("certs-of-peers.pem")
+
         with self._cfg as c:
             file = c.dataExchange.mutualTLSTrustedPeerCertificateBundleFilePath(
                 default, require_string
@@ -74,3 +71,8 @@ class FileConfigDataExchange:
             if os.path.exists(file):
                 return file
             return None
+
+    def _makeDefaultFile(self, fileName: str) -> str:
+        from tcp_over_websocket.config.file_config import FileConfig
+
+        return str(Path(FileConfig.homePath()) / fileName)

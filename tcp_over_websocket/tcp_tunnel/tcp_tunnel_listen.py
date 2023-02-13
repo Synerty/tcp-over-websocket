@@ -54,7 +54,7 @@ class TcpTunnelListen:
     def _processFromTcp(self, data: bytes):
         VortexFactory.sendVortexMsg(
             PayloadEnvelope(self._dataFilt, data=data).toVortexMsg(),
-            vortexName=self._otherVortexName,
+            destVortexName=self._otherVortexName,
         )
 
 
@@ -68,6 +68,9 @@ class _ListenProtocol(protocol.Protocol):
     def write(self, data: bytes):
         self.transport.write(data)
 
+    def close(self):
+        self.transport.loseConnection()
+
 
 class _ListenFactory(protocol.Factory):
     def __init__(self, dataReceivedCallable):
@@ -76,7 +79,7 @@ class _ListenFactory(protocol.Factory):
 
     def buildProtocol(self, addr):
         if self._lastProtocol:
-            self._lastProtocol.loseConnection()
+            self._lastProtocol.close()
         self._lastProtocol = _ListenProtocol(self._dataReceivedCallable)
         return self._lastProtocol
 
