@@ -69,10 +69,10 @@ package_files = find_package_files()
 # and no older than this version
 
 requirements = [
-    "vortexpy",
-    "txhttputil",
-    "json-cfg-rw",
-    "twisted[tls]",
+    "vortexpy==3.4.3",
+    "txhttputil==1.2.8",
+    "json-cfg-rw==0.5.0",
+    "twisted[tls]==22.10.0",
 ]
 
 if isWindows:
