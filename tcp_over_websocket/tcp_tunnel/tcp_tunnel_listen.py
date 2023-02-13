@@ -1,88 +1,53 @@
 import logging
 
-from twisted.internet import protocol
 from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks
 from twisted.internet.endpoints import TCP4ServerEndpoint
-from vortex.DeferUtil import deferToThreadWrapWithLogger
-from vortex.PayloadEndpoint import PayloadEndpoint
-from vortex.PayloadEnvelope import PayloadEnvelope
-from vortex.VortexFactory import VortexFactory
 
 from tcp_over_websocket.config.file_config_tcp_listen_tunnel import (
     FileConfigTcpListenTunnel,
 )
+from tcp_over_websocket.tcp_tunnel.tcp_tunnel_abc import TcpTunnelABC
 
 logger = logging.getLogger(__name__)
 
 
-class TcpTunnelListen:
+class TcpTunnelListen(TcpTunnelABC):
+    side = "listen"
+
     def __init__(self, config: FileConfigTcpListenTunnel, otherVortexName: str):
+        TcpTunnelABC.__init__(self, config.tunnelName, otherVortexName)
         self._config = config
-        self._otherVortexName = otherVortexName
-        self._dataFilt = dict(key=config.tunnelName, data=True)
-
-        self._factory = _ListenFactory(self._processFromTcp)
         self._tcpServer = None
-        self._endpoint = None
 
+    @inlineCallbacks
     def start(self):
-        self._endpoint = PayloadEndpoint(
-            dict(key=self._config.tunnelName), self._processFromVortex
-        )
+        self._start()
 
-        self._tcpServer = TCP4ServerEndpoint(
+        endpoint = TCP4ServerEndpoint(
             reactor,
             port=self._config.listenPort,
             interface=self._config.listenBindAddress,
-        ).listen(self._factory)
-
-    def shutdown(self):
-        if self._endpoint:
-            self._endpoint.shutdown()
-            self._endpoint = None
-
-        if self._tcpServer:
-            self._tcpServer.close()
-            self._tcpServer = None
-
-    def _processFromVortex(
-        self, payloadEnvelope: PayloadEnvelope, *args, **kwargs
-    ):
-        self._factory.write(payloadEnvelope.data)
-
-    @deferToThreadWrapWithLogger(logger)
-    def _processFromTcp(self, data: bytes):
-        VortexFactory.sendVortexMsg(
-            PayloadEnvelope(self._dataFilt, data=data).toVortexMsg(),
-            destVortexName=self._otherVortexName,
         )
 
+        logger.debug(f"Started tcp listen for [{self._tunnelName}]")
+        self._tcpServer = yield endpoint.listen(self._factory)
 
-class _ListenProtocol(protocol.Protocol):
-    def __init__(self, dataReceivedCallable):
-        self._dataReceivedCallable = dataReceivedCallable
+    def shutdown(self):
+        self._shutdown()
 
-    def dataReceived(self, data):
-        self._dataReceivedCallable(data)
+        if self._tcpServer:
+            self._tcpServer.stopListening()
+            self._tcpServer = None
 
-    def write(self, data: bytes):
-        self.transport.write(data)
+        logger.debug(f"Stopped tcp listen for [{self._tunnelName}]")
 
-    def close(self):
-        self.transport.loseConnection()
+    def _remoteConnectionMade(self):
+        TcpTunnelABC._remoteConnectionMade(self)
+        # Do nothing, all is good
 
+    def _remoteConnectionLost(self, cleanly: bool):
+        TcpTunnelABC._remoteConnectionLost(self, cleanly)
 
-class _ListenFactory(protocol.Factory):
-    def __init__(self, dataReceivedCallable):
-        self._dataReceivedCallable = dataReceivedCallable
-        self._lastProtocol = None
-
-    def buildProtocol(self, addr):
-        if self._lastProtocol:
-            self._lastProtocol.close()
-        self._lastProtocol = _ListenProtocol(self._dataReceivedCallable)
-        return self._lastProtocol
-
-    def write(self, data: bytes):
-        assert self._lastProtocol, "We have no last protocol"
-        self._lastProtocol.write(data)
+        # If the remote end can't connect, then drop the connection
+        self._factory.closeLastConnection()

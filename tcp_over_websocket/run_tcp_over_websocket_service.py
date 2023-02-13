@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 from twisted.internet.defer import Deferred
+from twisted.internet.defer import inlineCallbacks
 from txhttputil.site.BasicResource import BasicResource
 from txhttputil.site.SiteUtil import setupSite
 from txhttputil.util.PemUtil import generateDiffieHellmanParameterBytes
@@ -118,6 +119,99 @@ def setupLogging():
         defer.setDebugging(True)
 
 
+def createTunnels(fileConfig):
+    otherVortexName = (
+        CLIENT_VORTEX_NAME if fileConfig.weAreServer else SERVER_VORTEX_NAME
+    )
+    tunnelHandlers = []
+    tunnelHandlers.extend(
+        [
+            TcpTunnelListen(listenCfg, otherVortexName)
+            for listenCfg in fileConfig.tcpTunnelListens
+        ]
+    )
+    tunnelHandlers.extend(
+        [
+            TcpTunnelConnect(connectCfg, otherVortexName)
+            for connectCfg in fileConfig.tcpTunnelConnects
+        ]
+    )
+
+    @inlineCallbacks
+    def startTunnelsCallable(*args):
+        for tunnelHandler in tunnelHandlers:
+            yield tunnelHandler.start()
+
+    @inlineCallbacks
+    def shutdownTunnelsCallable(*args):
+        for tunnelHandler in tunnelHandlers:
+            yield tunnelHandler.shutdown()
+
+    return startTunnelsCallable, shutdownTunnelsCallable
+
+
+def setupForClient(startTunnelsCallable, shutdownTunnelsCallable):
+    # Make sure we restart if the vortex goes offline
+
+    class _State:
+        restartEnabled = True
+
+    def restart(*args):
+        if not _State.restartEnabled:
+            return
+
+        from tcp_over_websocket.util.restart_util import RestartUtil
+
+        RestartUtil.restartProcess()
+
+    (
+        VortexFactory.subscribeToVortexStatusChange(SERVER_VORTEX_NAME)
+        .filter(lambda online: online is False)
+        .subscribe(on_next=restart)
+    )
+
+    @inlineCallbacks
+    def shutdown(*args):
+        _State.restartEnabled = False
+        yield shutdownTunnelsCallable()
+
+    reactor.addSystemEventTrigger("before", "shutdown", shutdown)
+
+    d = connectVortexClient()
+    d.addCallback(startTunnelsCallable)
+
+    # If we have errors, restart
+    d.addErrback(restart)
+
+    return d
+
+
+def setupForServer(startTunnelsCallable, shutdownTunnelsCallable):
+    # Make sure we restart if the vortex goes offline
+    def clientVortexOnline(*args):
+        reactor.callFromThread(startTunnelsCallable)
+
+    # Make sure we restart if the vortex goes offline
+    def clientVortexOffline(*args):
+        reactor.callFromThread(shutdownTunnelsCallable)
+
+    (
+        VortexFactory.subscribeToVortexStatusChange(
+            CLIENT_VORTEX_NAME
+        ).subscribe(
+            on_next=(
+                lambda online: clientVortexOnline()
+                if online
+                else clientVortexOffline()
+            )
+        )
+    )
+
+    d = serveVortexServer()
+
+    return d
+
+
 def main():
     fileConfig = file_config.FileConfig()
     # defer.setDebugging(True)
@@ -127,44 +221,13 @@ def main():
 
     setupLogging()
 
-    # Make sure we restart if the vortex goes offline
-    def restart(_=None):
-        from tcp_over_websocket.util.restart_util import RestartUtil
-
-        RestartUtil.restartProcess()
-
-    (
-        VortexFactory.subscribeToVortexStatusChange("other_vortex")
-        .filter(lambda online: online is False)
-        .subscribe(on_next=restart)
-    )
-
-    otherVortexName = (
-        CLIENT_VORTEX_NAME if fileConfig.weAreServer else SERVER_VORTEX_NAME
-    )
-    tcpHandlers = []
-    tcpHandlers.extend(
-        [
-            TcpTunnelListen(listenCfg, otherVortexName)
-            for listenCfg in fileConfig.tcpTunnelListens
-        ]
-    )
-    tcpHandlers.extend(
-        [
-            TcpTunnelConnect(connectCfg, otherVortexName)
-            for connectCfg in fileConfig.tcpTunnelConnects
-        ]
-    )
+    startTunnelsCallable, shutdownTunnelsCallable = createTunnels(fileConfig)
 
     # Load all Plugins
     if fileConfig.weAreServer:
-        d = serveVortexServer()
+        d = setupForServer(startTunnelsCallable, shutdownTunnelsCallable)
     else:
-        d = connectVortexClient()
-
-    def startTunnels(_):
-        for tcpHandler in tcpHandlers:
-            tcpHandler.start()
+        d = setupForClient(startTunnelsCallable, shutdownTunnelsCallable)
 
     def startedSuccessfully(_):
         import tcp_over_websocket
@@ -175,16 +238,8 @@ def main():
         )
         return _
 
-    d.addErrback(vortexLogFailure, logger, consumeError=False)
-    d.addErrback(lambda _: restart())
-    d.addCallback(startTunnels)
     d.addCallback(startedSuccessfully)
-
-    def shutdownTunnels():
-        for tcpHandler in tcpHandlers:
-            tcpHandler.shutdown()
-
-    reactor.addSystemEventTrigger("before", "shutdown", shutdownTunnels)
+    d.addErrback(vortexLogFailure, logger, consumeError=False)
 
     reactor.run()
 
