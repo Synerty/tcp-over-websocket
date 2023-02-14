@@ -1,6 +1,7 @@
 import logging
 from abc import ABCMeta
 from abc import abstractmethod
+from collections import deque
 
 from twisted.internet import protocol
 from twisted.internet import reactor
@@ -48,6 +49,9 @@ class TcpTunnelABC(metaclass=ABCMeta):
         self._tcpServer = None
         self._endpoint = None
 
+        self._isLocalConnected = False
+        self._dataBuffer: deque[bytes] = deque()
+
     def _start(self):
         self._endpoint = PayloadEndpoint(
             self._listenFilt, self._processFromVortex
@@ -63,7 +67,11 @@ class TcpTunnelABC(metaclass=ABCMeta):
         self, payloadEnvelope: PayloadEnvelope, *args, **kwargs
     ):
         if payloadEnvelope.filt.get(FILT_IS_DATA_KEY):
-            self._factory.write(payloadEnvelope.data)
+            if payloadEnvelope.data:
+                if self._isLocalConnected:
+                    self._factory.write(payloadEnvelope.data)
+                else:
+                    self._dataBuffer.append(payloadEnvelope.data)
             return
 
         assert payloadEnvelope.filt.get(
@@ -104,9 +112,13 @@ class TcpTunnelABC(metaclass=ABCMeta):
         filt = {FILT_CONTROL_KEY: FILT_CONTROL_MADE_VALUE}
         filt.update(self._sendControlFilt)
         # Give any data a chance to be sent
+        self._isLocalConnected = True
+        while self._dataBuffer:
+            self._factory.write(self._dataBuffer.popleft())
         self._send(filt)
 
     def _localConnectionLost(self, reason: Failure, failedToConnect=False):
+        self._isLocalConnected = False
         if not failedToConnect:
             if reason == connectionDone or reason.value is None:
                 logger.debug(

@@ -15,7 +15,37 @@ Websocket is established.
 TCP tunnels are defined by a `tunnelName`, one side will listen and one side 
 will connect.
 
+## Running
+
+You need to configure the settings before running tco-over-websocket, but if 
+you want to just see if it starts run the command
+
+```
+run_tcp_over_websocket_service
+```
+
+It will start as a client by default and try to reconnect to nothing.
+
+## Configuration
+
+By default the tcp-over-websocket will create a home directory 
+~/tcp-over-websocket.home and create a `config.json` file in that directory.
+
+To change the location of this directory, pass the config directory name in 
+as the first argument of the python script
+
+Here is a windows example:
+```
+python c:\python\Lib\site-packages\tcp_over_websocket
+\run_tcp_over_websocket_service.py c:\Users\meuser\tcp-over-websocket-server.
+home
+```
+
+
 ## Example Client Configuration
+
+Create a directory and place the following contents in a config.json file
+in that directory.
 
 ```
 {
@@ -87,3 +117,7 @@ will connect.
     "weAreServer": false
 }
 ```
+
+## Windows Notes
+
+On Windows, passing a 
