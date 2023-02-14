@@ -46,7 +46,7 @@ def updateLoggerHandlers(daysToKeep: int, logToStdout: bool, lofFileName: str):
             # Setup the file logging output
             rootLogger.removeHandler(handler)
 
-        elif not sys.stdout.isatty() and not logToStdout:
+        elif not (sys.stdout and sys.stdout.isatty()) and not logToStdout:
             # Remove the stdout handler
             logger.info(
                 "Logging to stdout disabled, see 'logToStdout' in config.json"

@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 from typing import Optional
@@ -6,6 +7,8 @@ from urllib.parse import urlparse
 from jsoncfg.functions import ConfigWithWrapper
 from jsoncfg.value_mappers import require_bool
 from jsoncfg.value_mappers import require_string
+
+logger = logging.getLogger(__name__)
 
 
 class FileConfigDataExchange:
@@ -40,6 +43,7 @@ class FileConfigDataExchange:
             file = c.dataExchange.tlsBundleFilePath(default, require_string)
             if os.path.exists(file):
                 return file
+            logger.warning(f"{file} does not exist or is not a file")
             return None
 
     @property
@@ -49,13 +53,14 @@ class FileConfigDataExchange:
 
     @property
     def mutualTLSTrustedCACertificateBundleFilePath(self) -> Optional[str]:
-        default = self._makeDefaultFile("trusted-ca.pem")
+        default = self._makeDefaultFile("trusted-ca-chain.pem")
         with self._cfg as c:
             file = c.dataExchange.mutualTLSTrustedCACertificateBundleFilePath(
                 default, require_string
             )
             if os.path.exists(file):
                 return file
+            logger.warning(f"{file} does not exist or is not a file")
             return None
 
     @property
@@ -70,6 +75,7 @@ class FileConfigDataExchange:
             )
             if os.path.exists(file):
                 return file
+            logger.warning(f"{file} does not exist or is not a file")
             return None
 
     def _makeDefaultFile(self, fileName: str) -> str:

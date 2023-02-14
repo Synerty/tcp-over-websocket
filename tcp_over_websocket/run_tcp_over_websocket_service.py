@@ -30,6 +30,7 @@ WEBSOCKET_URL_PATH = "vortexws"
 
 
 def serveVortexServer():
+    logger.debug("Starting serveVortexServer")
     fileConfig = file_config.FileConfig()
 
     platformSiteRoot = BasicResource()
@@ -71,6 +72,7 @@ def serveVortexServer():
 
 
 def connectVortexClient() -> Deferred:
+    logger.debug("Starting connectVortexClient")
     fileConfig = file_config.FileConfig()
     dataExchangeCfg = fileConfig.dataExchange
 
@@ -91,6 +93,7 @@ def connectVortexClient() -> Deferred:
 
 
 def setupLogging():
+    logger.debug("Starting setupLogging")
     fileConfig = file_config.FileConfig()
     # Set default logging level
     logging.root.setLevel(fileConfig.logging.loggingLevel)
@@ -120,6 +123,7 @@ def setupLogging():
 
 
 def createTunnels(fileConfig):
+    logger.debug("Starting createTunnels")
     otherVortexName = (
         CLIENT_VORTEX_NAME if fileConfig.weAreServer else SERVER_VORTEX_NAME
     )
@@ -151,6 +155,7 @@ def createTunnels(fileConfig):
 
 
 def setupForClient(startTunnelsCallable, shutdownTunnelsCallable):
+    logger.debug("Starting setupForClient")
     # Make sure we restart if the vortex goes offline
 
     class _State:
@@ -187,6 +192,7 @@ def setupForClient(startTunnelsCallable, shutdownTunnelsCallable):
 
 
 def setupForServer(startTunnelsCallable, shutdownTunnelsCallable):
+    logger.debug("Starting setupForServer")
     # Make sure we restart if the vortex goes offline
     def clientVortexOnline(*args):
         reactor.callFromThread(startTunnelsCallable)
@@ -213,6 +219,7 @@ def setupForServer(startTunnelsCallable, shutdownTunnelsCallable):
 
 
 def main():
+    logger.debug("Starting main")
     fileConfig = file_config.FileConfig()
     # defer.setDebugging(True)
     # sys.argv.remove(DEBUG_ARG)
