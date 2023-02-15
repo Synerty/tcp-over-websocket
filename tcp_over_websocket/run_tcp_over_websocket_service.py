@@ -179,7 +179,6 @@ def setupForClient(startTunnelsCallable, shutdownTunnelsCallable):
     )
 
     d = connectVortexClient()
-    d.addCallback(startTunnelsCallable)
 
     def restart(failure: Failure):
         vortexLogFailure(failure, logger)
@@ -196,24 +195,18 @@ def setupForClient(startTunnelsCallable, shutdownTunnelsCallable):
 
 def setupForServer(startTunnelsCallable, shutdownTunnelsCallable):
     logger.debug("Starting setupForServer")
-    # Make sure we restart if the vortex goes offline
-    def clientVortexOnline(*args):
-        reactor.callFromThread(startTunnelsCallable)
 
-    # Make sure we restart if the vortex goes offline
-    def clientVortexOffline(*args):
-        reactor.callFromThread(shutdownTunnelsCallable)
+    def upDownTunnels(nowOnline=False):
+        call = startTunnelsCallable if nowOnline else shutdownTunnelsCallable
+        if isMainThread():
+            return call()
+
+        blockingCallFromThread(reactor, call)
 
     (
         VortexFactory.subscribeToVortexStatusChange(
             CLIENT_VORTEX_NAME
-        ).subscribe(
-            on_next=(
-                lambda online: clientVortexOnline()
-                if online
-                else clientVortexOffline()
-            )
-        )
+        ).subscribe(on_next=upDownTunnels)
     )
 
     d = serveVortexServer()
