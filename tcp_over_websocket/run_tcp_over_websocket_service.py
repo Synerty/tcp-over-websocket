@@ -3,9 +3,12 @@ from pathlib import Path
 
 from twisted.internet.defer import Deferred
 from twisted.internet.defer import inlineCallbacks
+from twisted.internet.threads import blockingCallFromThread
+from twisted.python.failure import Failure
 from txhttputil.site.BasicResource import BasicResource
 from txhttputil.site.SiteUtil import setupSite
 from txhttputil.util.PemUtil import generateDiffieHellmanParameterBytes
+from vortex.DeferUtil import isMainThread
 from vortex.DeferUtil import vortexLogFailure
 from vortex.VortexFactory import VortexFactory
 
@@ -158,32 +161,32 @@ def setupForClient(startTunnelsCallable, shutdownTunnelsCallable):
     logger.debug("Starting setupForClient")
     # Make sure we restart if the vortex goes offline
 
-    class _State:
-        restartEnabled = True
+    def upDownTunnels(nowOnline=False):
+        call = startTunnelsCallable if nowOnline else shutdownTunnelsCallable
+        if isMainThread():
+            return call()
 
-    def restart(*args):
-        if not _State.restartEnabled:
-            return
-
-        from tcp_over_websocket.util.restart_util import RestartUtil
-
-        RestartUtil.restartProcess()
+        blockingCallFromThread(reactor, call)
 
     (
-        VortexFactory.subscribeToVortexStatusChange(SERVER_VORTEX_NAME)
-        .filter(lambda online: online is False)
-        .subscribe(on_next=restart)
+        VortexFactory.subscribeToVortexStatusChange(
+            SERVER_VORTEX_NAME
+        ).subscribe(on_next=upDownTunnels)
     )
 
-    @inlineCallbacks
-    def shutdown(*args):
-        _State.restartEnabled = False
-        yield shutdownTunnelsCallable()
-
-    reactor.addSystemEventTrigger("before", "shutdown", shutdown)
+    reactor.addSystemEventTrigger(
+        "before", "shutdown", lambda: upDownTunnels(False)
+    )
 
     d = connectVortexClient()
     d.addCallback(startTunnelsCallable)
+
+    def restart(failure: Failure):
+        vortexLogFailure(failure, logger)
+        logger.error("Restarting because of error")
+        from tcp_over_websocket.util.restart_util import RestartUtil
+
+        RestartUtil.restartProcess()
 
     # If we have errors, restart
     d.addErrback(restart)
