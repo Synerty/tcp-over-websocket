@@ -41,6 +41,7 @@ class TcpTunnelABC(metaclass=ABCMeta):
             self._processFromTcp,
             self._localConnectionMade,
             self._localConnectionLost,
+            self._tunnelName,
         )
         self._tcpServer = None
         self._endpoint = None
@@ -164,10 +165,12 @@ class _ABCProtocol(protocol.Protocol):
         dataReceivedCallable,
         connectionMadeCallable,
         connectionLostCallable,
+        tunnelName,
     ):
         self._dataReceivedCallable = dataReceivedCallable
         self._connectionMadeCallable = connectionMadeCallable
         self._connectionLostCallable = connectionLostCallable
+        self._tunnelName = tunnelName
 
     def connectionMade(self):
         try:
@@ -193,9 +196,12 @@ class _ABCProtocol(protocol.Protocol):
         except Exception as e:
             logger.exception(e)
 
+    @inlineCallbacks
     def close(self):
         try:
-            self.transport.loseConnection()
+            logger.debug(f"Closing tcp connect for [{self._tunnelName}]")
+            yield self.transport.loseConnection()
+            logger.debug(f"Closed tcp connect for [{self._tunnelName}]")
         except Exception as e:
             logger.exception(e)
 
@@ -206,18 +212,22 @@ class _ABCFactory(protocol.Factory):
         dataReceivedCallable,
         connectionMadeCallable,
         connectionLostCallable,
+        tunnelName,
     ):
         self._dataReceivedCallable = dataReceivedCallable
         self._connectionMadeCallable = connectionMadeCallable
         self._connectionLostCallable = connectionLostCallable
+        self._tunnelName = tunnelName
         self._lastProtocol = None
 
     def buildProtocol(self, addr):
-        self.closeLastConnection()
+        if self._lastProtocol:
+            reactor.callLater(0, self._closeProtocol, self._lastProtocol)
         self._lastProtocol = _ABCProtocol(
             self._dataReceivedCallable,
             self._connectionMadeCallable,
             self._connectionLostCallable,
+            self._tunnelName,
         )
         return self._lastProtocol
 
@@ -225,7 +235,21 @@ class _ABCFactory(protocol.Factory):
         assert self._lastProtocol, "We have no last protocol"
         self._lastProtocol.write(data)
 
+    @inlineCallbacks
     def closeLastConnection(self):
         if self._lastProtocol:
-            self._lastProtocol.close()
+            protocol = self._lastProtocol
             self._lastProtocol = None
+            yield self._closeProtocol(protocol)
+
+    @inlineCallbacks
+    def _closeProtocol(self, protocol):
+        logger.debug(
+            f"Disconnecting existing tcp connections"
+            f" for [{self._tunnelName}]"
+        )
+        yield protocol.close()
+        logger.debug(
+            f"Disconnected existing tcp connections"
+            f" for [{self._tunnelName}]"
+        )

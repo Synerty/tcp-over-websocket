@@ -25,24 +25,34 @@ class TcpTunnelConnect(TcpTunnelABC):
 
     def start(self):
         self._start()
+        logger.debug(f"Started tcp connect for [{self._tunnelName}]")
 
+    @inlineCallbacks
     def shutdown(self):
         self._shutdown()
-        self._closeClient()
+        yield self._closeClient()
 
     @inlineCallbacks
     def _remoteConnectionMade(self):
-        TcpTunnelABC._remoteConnectionMade(self)
+        yield TcpTunnelABC._remoteConnectionMade(self)
         yield self._connectClient()
 
+    @inlineCallbacks
     def _remoteConnectionLost(self, cleanly: bool):
-        TcpTunnelABC._remoteConnectionLost(self, cleanly)
-        self._closeClient()
+        yield TcpTunnelABC._remoteConnectionLost(self, cleanly)
+        yield self._closeClient()
 
+    @inlineCallbacks
     def _closeClient(self):
         if self._tcpClient:
-            self._tcpClient.close()
+            logger.debug(f"Stopping tcp connect for [{self._tunnelName}]")
+            yield self._tcpClient.close()
             self._tcpClient = None
+
+        else:
+            logger.debug(f"No tcp connect to stop for [{self._tunnelName}]")
+
+        logger.debug(f"Stopped tcp connect for [{self._tunnelName}]")
 
     @inlineCallbacks
     def _connectClient(self):

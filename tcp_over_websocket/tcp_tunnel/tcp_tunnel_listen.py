@@ -30,24 +30,34 @@ class TcpTunnelListen(TcpTunnelABC):
             interface=self._config.listenBindAddress,
         )
 
-        logger.debug(f"Started tcp listen for [{self._tunnelName}]")
         self._tcpServer = yield endpoint.listen(self._factory)
+        logger.debug(f"Started tcp listen for [{self._tunnelName}]")
 
+    @inlineCallbacks
     def shutdown(self):
         self._shutdown()
 
         if self._tcpServer:
-            self._tcpServer.stopListening()
+            logger.debug(f"Stopping tcp listen for [{self._tunnelName}]")
+            yield self._tcpServer.stopListening()
             self._tcpServer = None
+
+            # Close existing connections
+            yield self._factory.closeLastConnection()
+
+        else:
+            logger.debug(f"No tcp listen to stop for [{self._tunnelName}]")
 
         logger.debug(f"Stopped tcp listen for [{self._tunnelName}]")
 
+    @inlineCallbacks
     def _remoteConnectionMade(self):
-        TcpTunnelABC._remoteConnectionMade(self)
+        yield TcpTunnelABC._remoteConnectionMade(self)
         # Do nothing, all is good
 
+    @inlineCallbacks
     def _remoteConnectionLost(self, cleanly: bool):
-        TcpTunnelABC._remoteConnectionLost(self, cleanly)
+        yield TcpTunnelABC._remoteConnectionLost(self, cleanly)
 
         # If the remote end can't connect, then drop the connection
-        self._factory.closeLastConnection()
+        yield self._factory.closeLastConnection()
