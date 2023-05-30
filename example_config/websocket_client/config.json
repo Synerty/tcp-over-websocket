@@ -1,0 +1,36 @@
+{
+    "dataExchange": {
+        "enableMutualTLS": false,
+        "mutualTLSTrustedCACertificateBundleFilePath": "/Users/jchesney/Downloads/tcp_svr/trusted-ca.pem",
+        "mutualTLSTrustedPeerCertificateBundleFilePath": "/Users/jchesney/Downloads/tcp_svr/certs-of-peers.pem",
+        "serverUrl": "http://localhost:8080",
+        "tlsBundleFilePath": "/Users/jchesney/Downloads/tcp_svr/key-cert-ca-root-chain.pem"
+    },
+    "logging": {
+        "daysToKeep": 14,
+        "level": "DEBUG",
+        "logToStdout": true,
+        "syslog": {
+            "logToSysloyHost": null
+        }
+    },
+    "tcpTunnelConnects": [
+        {
+            "connectToHost": "search.brave.com",
+            "connectToPort": 80,
+            "tunnelName": "brave"
+        },
+        {
+            "connectToHost": "127.0.0.1",
+            "connectToPort": 22,
+            "tunnelName": "test_ssh"
+        }
+    ],
+    "tcpTunnelListens": [
+        {
+            "listenBindAddress": "127.0.0.1",
+            "listenPort": 8091,
+            "tunnelName": "duckduckgo"
+        }],
+    "weAreServer": false
+}

@@ -84,6 +84,11 @@ in that directory.
             "connectToHost": "search.brave.com",
             "connectToPort": 80,
             "tunnelName": "brave"
+        },
+        {
+            "connectToHost": "127.0.0.1",
+            "connectToPort": 22,
+            "tunnelName": "test_ssh"
         }
     ],
     "tcpTunnelListens": [
@@ -94,7 +99,6 @@ in that directory.
         }],
     "weAreServer": false
 }
-
 ```
 
 ## Example Server Configuration
@@ -118,18 +122,24 @@ in that directory.
     },
     "tcpTunnelConnects": [
         {
-            "connectToHost": "search.brave.com",
+            "connectToHost": "duckduckgo.com",
             "connectToPort": 80,
-            "tunnelName": "brave"
+            "tunnelName": "duckduckgo"
         }
     ],
     "tcpTunnelListens": [
         {
             "listenBindAddress": "127.0.0.1",
-            "listenPort": 8091,
-            "tunnelName": "duckduckgo"
-        }],
-    "weAreServer": false
+            "listenPort": 8092,
+            "tunnelName": "brave"
+        },
+        {
+            "listenBindAddress": "127.0.0.1",
+            "listenPort": 8022,
+            "tunnelName": "test_ssh"
+        }
+    ],
+    "weAreServer": true
 }
 ```
 
