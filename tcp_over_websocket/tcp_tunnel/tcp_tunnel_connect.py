@@ -4,7 +4,6 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.python.failure import Failure
-from vortex.PayloadEndpoint import PayloadEndpoint
 
 from tcp_over_websocket.config.file_config_tcp_connect_tunnel import (
     FileConfigTcpConnectTunnel,

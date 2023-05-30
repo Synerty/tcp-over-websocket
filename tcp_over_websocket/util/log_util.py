@@ -5,8 +5,6 @@ import sys
 from logging.handlers import SysLogHandler
 from logging.handlers import TimedRotatingFileHandler
 
-from pathlib import Path
-
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s:%(message)s"
 DATE_FORMAT = "%d-%b-%Y %H:%M:%S"
 

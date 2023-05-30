@@ -1,16 +1,12 @@
 import logging
 from abc import ABCMeta
-from abc import abstractmethod
 from collections import deque
 
 from twisted.internet import protocol
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.protocol import connectionDone
-from twisted.internet.task import deferLater
 from twisted.python.failure import Failure
-from vortex.DeferUtil import vortexLogFailure
 from vortex.PayloadEndpoint import PayloadEndpoint
 from vortex.PayloadEnvelope import PayloadEnvelope
 from vortex.VortexFactory import VortexFactory

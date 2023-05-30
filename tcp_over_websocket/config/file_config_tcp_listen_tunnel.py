@@ -1,6 +1,4 @@
 from jsoncfg.functions import ConfigWithWrapper
-from jsoncfg.value_mappers import require_integer
-from jsoncfg.value_mappers import require_string
 
 
 class FileConfigTcpListenTunnel:

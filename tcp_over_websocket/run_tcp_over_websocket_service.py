@@ -12,12 +12,12 @@ from vortex.DeferUtil import isMainThread
 from vortex.DeferUtil import vortexLogFailure
 from vortex.VortexFactory import VortexFactory
 
+from tcp_over_websocket.config import file_config
 from tcp_over_websocket.tcp_tunnel.tcp_tunnel_connect import TcpTunnelConnect
 from tcp_over_websocket.tcp_tunnel.tcp_tunnel_listen import TcpTunnelListen
 from tcp_over_websocket.util.log_util import setupLogger
 from tcp_over_websocket.util.vortex_util import CLIENT_VORTEX_NAME
 from tcp_over_websocket.util.vortex_util import SERVER_VORTEX_NAME
-from tcp_over_websocket.config import file_config
 
 # Setup the logger to catch the startup.
 setupLogger()
