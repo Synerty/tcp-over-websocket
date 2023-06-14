@@ -159,10 +159,10 @@ Use `--username` and `--password` to run the service as a non-privileged user.
 
 After registering the above, you must go and re-enter the username and password. 
 
-1. Run `servcies.msc`
+1. Run `services.msc`
 2. Find the `TCP over Websocket` service
 3. Open the service properties
-4. Click on the `Lok On` tab
+4. Click on the `Log On` tab
 5. Click `Local System account` and click `Apply`
 6. Select `This account`
 7. Enter your service username and password again.
