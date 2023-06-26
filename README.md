@@ -275,4 +275,39 @@ On the Client
 4.  Set the `mutualTLSTrustedPeerCertificateBundleFilePath` to the path of a 
     file containing the Servers public certificate.
 
+## Uninstall
 
+To uninstall the tcp_over_websocket package:
+
+
+### Windows 
+
+On Windows, remove the service with: 
+
+```
+winsvc_tcp_over_websocket_service remove
+```
+
+---
+
+Remove the package with: 
+
+```
+pip uninstall tcp_over_websocket
+```
+
+### Linux
+
+On Linux, stop the service
+
+```
+TODO
+```
+
+---
+
+Uninstall the package
+
+```
+pip uninstall tcp_over_websocket
+```
