@@ -1,4 +1,5 @@
 import logging
+import struct
 from abc import ABCMeta
 from collections import deque
 
@@ -171,6 +172,9 @@ class _ABCProtocol(protocol.Protocol):
         self._connectionMadeCallable = connectionMadeCallable
         self._connectionLostCallable = connectionLostCallable
         self._tunnelName = tunnelName
+        self._sendPacketSequence = 1
+        self._receivedPacketSequence = 1
+        self._receivedDataBySequence: dict[int, bytes] = {}
 
     def connectionMade(self):
         try:
@@ -179,6 +183,17 @@ class _ABCProtocol(protocol.Protocol):
             logger.exception(e)
 
     def connectionLost(self, reason: Failure = connectionDone):
+        logger.debug(
+            "Final SEND SEQ %s for [%s]",
+            self._sendPacketSequence,
+            self._tunnelName,
+        )
+        logger.debug(
+            "Final RECEIVED SEQ %s for [%s]",
+            self._receivedPacketSequence,
+            self._tunnelName,
+        )
+
         try:
             self._connectionLostCallable(reason)
         except Exception as e:
@@ -186,15 +201,51 @@ class _ABCProtocol(protocol.Protocol):
 
     def dataReceived(self, data):
         try:
+            data = struct.pack("!Q", self._sendPacketSequence) + data
             self._dataReceivedCallable(data)
+            self._sendPacketSequence += 1
+
         except Exception as e:
             logger.exception(e)
 
     def write(self, data: bytes):
-        try:
-            self.transport.write(data)
-        except Exception as e:
-            logger.exception(e)
+        """Write
+
+        This is us receiving data from the vortex, and sending it to the
+        socket
+        """
+        seq = struct.unpack("!Q", data[:8])[0]
+        data = data[8:]
+        self._receivedDataBySequence[seq] = data
+        if seq != self._receivedPacketSequence:
+            logger.debug(
+                "Received out of order package %s, expected %s, "
+                "correcting it for [%s]",
+                seq,
+                self._receivedPacketSequence,
+                self._tunnelName,
+            )
+
+        while self._receivedPacketSequence in self._receivedDataBySequence:
+            data = self._receivedDataBySequence.pop(
+                self._receivedPacketSequence
+            )
+            self._receivedPacketSequence += 1
+
+            try:
+                self.transport.write(data)
+            except Exception as e:
+                logger.exception(e)
+                self.transport.loseConnection()
+
+        if len(self._receivedDataBySequence) == 1000:
+            logger.error(
+                "Missing sequence %s, it's not turned up after 1000"
+                " packets, for [%s]",
+                self._receivedPacketSequence,
+                self._tunnelName,
+            )
+            self.transport.loseConnection()
 
     @inlineCallbacks
     def close(self):
@@ -203,7 +254,12 @@ class _ABCProtocol(protocol.Protocol):
             yield self.transport.loseConnection()
             logger.debug(f"Closed tcp connect for [{self._tunnelName}]")
         except Exception as e:
-            logger.exception(e)
+            logger.exception(
+                "There was an issue with closing the TCP"
+                " connection for [%s]. Exception: %s",
+                self._tunnelName,
+                e,
+            )
 
 
 class _ABCFactory(protocol.Factory):
