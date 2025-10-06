@@ -1,0 +1,18 @@
+FROM python:3.9-slim
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /app
+
+# Install system dependencies including netcat and net-tools
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    git \
+    jq \
+    netcat-traditional \
+    net-tools \
+    && update-alternatives --install /usr/bin/nc nc /bin/nc.traditional 10 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy and install test requirements
+COPY tests/requirements.txt ./tests/
+RUN pip install --no-cache-dir -r tests/requirements.txt

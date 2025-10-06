@@ -1,8 +1,10 @@
+tests/.pytest_cache
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 dist/git s
+.idea/workspace.xml
 
 # C extensions
 *.so
@@ -101,3 +103,5 @@ doc_dist
 doc_dist_latex
 
 **/doc_link
+test-logs
+.venv

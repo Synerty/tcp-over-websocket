@@ -1,0 +1,5 @@
+asyncio
+aiofiles
+psutil
+pytest
+pytest-asyncio

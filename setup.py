@@ -42,7 +42,7 @@ excludeFilesStartWith = ()
 
 def find_package_files():
     paths = []
-    for (path, directories, filenames) in os.walk(py_package_name):
+    for path, directories, filenames in os.walk(py_package_name):
         if [e for e in excludePathContains if e in path]:
             continue
 
@@ -73,6 +73,7 @@ requirements = [
     "txhttputil==1.2.8",
     "json-cfg-rw==0.5.0",
     "twisted[tls]==22.10.0",
+    "reactivex==4.0.4",
 ]
 
 if isWindows:
@@ -103,10 +104,24 @@ setup(
     zip_safe=False,
     version=package_version,
     description=description,
+    long_description=open("README.md", "r", encoding="utf-8").read(),
+    long_description_content_type="text/markdown",
     author=author,
     author_email=author_email,
     url=url,
     download_url=download_url,
-    keywords=["TCP", "Websocket", "MutualTLS", "synerty"],
-    classifiers=[],
+    keywords=["TCP", "Websocket", "MutualTLS", "synerty", "tunnel", "proxy"],
+    python_requires=">=3.9",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "Intended Audience :: System Administrators",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.9",
+        "Topic :: Internet :: WWW/HTTP",
+        "Topic :: System :: Networking",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+    ],
 )

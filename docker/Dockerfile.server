@@ -1,0 +1,9 @@
+FROM tcp-over-websocket-base:latest
+
+# Copy server configuration
+COPY test_config/websocket_server/config.json /root/tcp-over-websocket.home/
+
+# Expose server ports
+EXPOSE 38080 38001 38002
+
+CMD ["run_tcp_over_websocket_service", "/root/tcp-over-websocket.home"]

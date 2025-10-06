@@ -1,0 +1,21 @@
+FROM tcp-over-websocket-test-base:latest
+
+# Copy the test files
+COPY tests/ ./tests/
+
+# Copy configuration files for port extraction
+COPY test_config/ ./test_config/
+
+# Copy test scripts
+COPY docker/scripts/run_tests.sh /app/
+COPY docker/scripts/extract_config_vars.sh /app/
+RUN chmod +x /app/run_tests.sh /app/extract_config_vars.sh
+
+# Expose ports for test services
+EXPOSE 39001 39002 39003 39004 39011 39012
+
+# Set environment variable for Docker container detection
+ENV HOST_DOCKERNAMES=true
+
+# Default command
+CMD ["/app/run_tests.sh"]

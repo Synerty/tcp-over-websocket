@@ -5,6 +5,7 @@ import win32serviceutil
 from twisted.internet import reactor
 
 import tcp_over_websocket
+from tcp_over_websocket.run_tcp_over_websocket_service import setupLogging
 from tcp_over_websocket.util.restart_util import IS_WIN_SVC
 
 logger = logging.getLogger(__name__)
@@ -51,4 +52,5 @@ def main():
 
 
 if __name__ == "__main__":
+    setupLogging()
     main()

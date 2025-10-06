@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  server:
+    image: tcp-over-websocket-server:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.server
+    ports:
+      - "38080:38080"
+      - "38001:38001" 
+      - "38002:38002"
+    networks:
+      - tcp-websocket-network
+    restart: unless-stopped
+
+  client1:
+    image: tcp-over-websocket-client1:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.client1
+    ports:
+      - "38011:38011"
+      - "38012:38012"
+    networks:
+      - tcp-websocket-network
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  client2:
+    image: tcp-over-websocket-client2:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.client2
+    ports:
+      - "38031:38021"
+      - "38032:38022"
+    networks:
+      - tcp-websocket-network
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  tests:
+    image: tcp-over-websocket-tests:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.tests
+    networks:
+      - tcp-websocket-network
+    depends_on:
+      - server
+      - client1
+      - client2
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ../test-logs:/app/test-logs
+    profiles:
+      - test
+
+networks:
+  tcp-websocket-network:
+    driver: bridge

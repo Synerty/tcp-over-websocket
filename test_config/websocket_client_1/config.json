@@ -1,9 +1,10 @@
 {
+    "clientId": 1,
     "dataExchange": {
         "enableMutualTLS": false,
         "mutualTLSTrustedCACertificateBundleFilePath": "/Users/jchesney/Downloads/tcp_svr/trusted-ca.pem",
         "mutualTLSTrustedPeerCertificateBundleFilePath": "/Users/jchesney/Downloads/tcp_svr/certs-of-peers.pem",
-        "serverUrl": "http://localhost:8080",
+        "serverUrl": "http://server:38080",
         "tlsBundleFilePath": "/Users/jchesney/Downloads/tcp_svr/key-cert-ca-root-chain.pem"
     },
     "logging": {
@@ -14,23 +15,30 @@
             "logToSysloyHost": null
         }
     },
+    "standbySocketCloseDurationSecs": 15,
     "tcpTunnelConnects": [
         {
-            "connectToHost": "search.brave.com",
-            "connectToPort": 80,
-            "tunnelName": "brave"
+            "connectToHost": "tests",
+            "connectToPort": 39001,
+            "tunnelName": "server-to-client-tun1"
         },
         {
-            "connectToHost": "127.0.0.1",
-            "connectToPort": 22,
-            "tunnelName": "test_ssh"
+            "connectToHost": "tests",
+            "connectToPort": 39002,
+            "tunnelName": "server-to-client-tun2"
         }
     ],
     "tcpTunnelListens": [
         {
-            "listenBindAddress": "127.0.0.1",
-            "listenPort": 8091,
-            "tunnelName": "duckduckgo"
-        }],
+            "listenBindAddress": "0.0.0.0",
+            "listenPort": 38011,
+            "tunnelName": "client-to-server-tun1"
+        },
+        {
+            "listenBindAddress": "0.0.0.0",
+            "listenPort": 38012,
+            "tunnelName": "client-to-server-tun2"
+        }
+    ],
     "weAreServer": false
 }

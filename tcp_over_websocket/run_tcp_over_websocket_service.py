@@ -1,98 +1,29 @@
+import logging
 import sys
 from pathlib import Path
 
-from twisted.internet.defer import Deferred
-from twisted.internet.defer import inlineCallbacks
-from twisted.internet.threads import blockingCallFromThread
-from twisted.python.failure import Failure
-from txhttputil.site.BasicResource import BasicResource
-from txhttputil.site.SiteUtil import setupSite
-from txhttputil.util.PemUtil import generateDiffieHellmanParameterBytes
-from vortex.DeferUtil import isMainThread
+from twisted.internet import reactor, defer
 from vortex.DeferUtil import vortexLogFailure
-from vortex.VortexFactory import VortexFactory
 
 from tcp_over_websocket.config import file_config
-from tcp_over_websocket.tcp_tunnel.tcp_tunnel_connect import TcpTunnelConnect
-from tcp_over_websocket.tcp_tunnel.tcp_tunnel_listen import TcpTunnelListen
-from tcp_over_websocket.util.log_util import setupLogger
-from tcp_over_websocket.util.vortex_util import CLIENT_VORTEX_NAME
-from tcp_over_websocket.util.vortex_util import SERVER_VORTEX_NAME
+from tcp_over_websocket.controllers.websocket_client_controller import (
+    WebsocketClientController,
+)
+from tcp_over_websocket.controllers.websocket_server_controller import (
+    WebsocketServerController,
+)
+from tcp_over_websocket.util.log_util import (
+    setupLogger,
+    updateLoggerHandlers,
+    setupLoggingToSyslogServer,
+)
+import tcp_over_websocket
 
 # Setup the logger to catch the startup.
 setupLogger()
 
-from twisted.internet import reactor, defer
-
-import logging
-
 
 logger = logging.getLogger(__name__)
-
-WEBSOCKET_URL_PATH = "vortexws"
-
-
-def serveVortexServer():
-    logger.debug("Starting serveVortexServer")
-    fileConfig = file_config.FileConfig()
-
-    platformSiteRoot = BasicResource()
-
-    vortexWebsocketResource = VortexFactory.createHttpWebsocketResource(
-        SERVER_VORTEX_NAME
-    )
-    platformSiteRoot.putChild(
-        WEBSOCKET_URL_PATH.encode(), vortexWebsocketResource
-    )
-
-    dataExchange = fileConfig.dataExchange
-
-    # generate diffie-hellman parameter for tls v1.2 if not exists
-    dhPemFile = Path(fileConfig.homePath()) / "dhparam.pem"
-    dhPemFilePath = str(dhPemFile.absolute())
-
-    if dataExchange.serverEnableSsl and not dhPemFile.exists():
-        logger.info(
-            "generating diffie-hellman parameter - this is one-off and "
-            "may take a while"
-        )
-        generateDiffieHellmanParameterBytes(dhPemFilePath)
-
-    setupSite(
-        "Data Exchange",
-        platformSiteRoot,
-        portNum=dataExchange.serverPort,
-        enableLogin=False,
-        enableSsl=dataExchange.serverEnableSsl,
-        sslBundleFilePath=dataExchange.serverTLSKeyCertCaRootBundleFilePath,
-        sslEnableMutualTLS=dataExchange.enableMutualTLS,
-        sslMutualTLSCertificateAuthorityBundleFilePath=dataExchange.mutualTLSTrustedCACertificateBundleFilePath,
-        sslMutualTLSTrustedPeerCertificateBundleFilePath=dataExchange.mutualTLSTrustedPeerCertificateBundleFilePath,
-        dhParamPemFilePath=dhPemFilePath,
-    )
-
-    return defer.succeed(True)
-
-
-def connectVortexClient() -> Deferred:
-    logger.debug("Starting connectVortexClient")
-    fileConfig = file_config.FileConfig()
-    dataExchangeCfg = fileConfig.dataExchange
-
-    scheme = "wss" if dataExchangeCfg.serverEnableSsl else "ws"
-    host = dataExchangeCfg.serverHost
-    port = dataExchangeCfg.serverPort
-
-    return VortexFactory.createWebsocketClient(
-        CLIENT_VORTEX_NAME,
-        host,
-        port,
-        url=f"{scheme}://{host}:{port}/{WEBSOCKET_URL_PATH}",
-        sslEnableMutualTLS=dataExchangeCfg.enableMutualTLS,
-        sslClientCertificateBundleFilePath=dataExchangeCfg.serverTLSKeyCertCaRootBundleFilePath,
-        sslMutualTLSCertificateAuthorityBundleFilePath=dataExchangeCfg.mutualTLSTrustedCACertificateBundleFilePath,
-        sslMutualTLSTrustedPeerCertificateBundleFilePath=dataExchangeCfg.mutualTLSTrustedPeerCertificateBundleFilePath,
-    )
 
 
 def setupLogging():
@@ -100,8 +31,6 @@ def setupLogging():
     fileConfig = file_config.FileConfig()
     # Set default logging level
     logging.root.setLevel(fileConfig.logging.loggingLevel)
-
-    from tcp_over_websocket.util.log_util import updateLoggerHandlers
 
     logFileName = str(Path(fileConfig.homePath()) / "tcp_over_websocket.log")
 
@@ -112,8 +41,6 @@ def setupLogging():
     )
 
     if fileConfig.logging.loggingLogToSyslogHost:
-        from tcp_over_websocket.util.log_util import setupLoggingToSyslogServer
-
         setupLoggingToSyslogServer(
             fileConfig.logging.loggingLogToSyslogHost,
             fileConfig.logging.loggingLogToSyslogPort,
@@ -125,95 +52,6 @@ def setupLogging():
         defer.setDebugging(True)
 
 
-def createTunnels(fileConfig):
-    logger.debug("Starting createTunnels")
-    otherVortexName = (
-        CLIENT_VORTEX_NAME if fileConfig.weAreServer else SERVER_VORTEX_NAME
-    )
-    tunnelHandlers = []
-    tunnelHandlers.extend(
-        [
-            TcpTunnelListen(listenCfg, otherVortexName)
-            for listenCfg in fileConfig.tcpTunnelListens
-        ]
-    )
-    tunnelHandlers.extend(
-        [
-            TcpTunnelConnect(connectCfg, otherVortexName)
-            for connectCfg in fileConfig.tcpTunnelConnects
-        ]
-    )
-
-    @inlineCallbacks
-    def startTunnelsCallable(*args):
-        for tunnelHandler in tunnelHandlers:
-            yield tunnelHandler.start()
-
-    @inlineCallbacks
-    def shutdownTunnelsCallable(*args):
-        for tunnelHandler in tunnelHandlers:
-            yield tunnelHandler.shutdown()
-
-    return startTunnelsCallable, shutdownTunnelsCallable
-
-
-def setupForClient(startTunnelsCallable, shutdownTunnelsCallable):
-    logger.debug("Starting setupForClient")
-    # Make sure we restart if the vortex goes offline
-
-    def upDownTunnels(nowOnline=False):
-        call = startTunnelsCallable if nowOnline else shutdownTunnelsCallable
-        if isMainThread():
-            return call()
-
-        blockingCallFromThread(reactor, call)
-
-    (
-        VortexFactory.subscribeToVortexStatusChange(
-            SERVER_VORTEX_NAME
-        ).subscribe(on_next=upDownTunnels)
-    )
-
-    reactor.addSystemEventTrigger(
-        "before", "shutdown", lambda: upDownTunnels(False)
-    )
-
-    d = connectVortexClient()
-
-    def restart(failure: Failure):
-        vortexLogFailure(failure, logger)
-        logger.error("Restarting because of error")
-        from tcp_over_websocket.util.restart_util import RestartUtil
-
-        RestartUtil.restartProcess()
-
-    # If we have errors, restart
-    d.addErrback(restart)
-
-    return d
-
-
-def setupForServer(startTunnelsCallable, shutdownTunnelsCallable):
-    logger.debug("Starting setupForServer")
-
-    def upDownTunnels(nowOnline=False):
-        call = startTunnelsCallable if nowOnline else shutdownTunnelsCallable
-        if isMainThread():
-            return call()
-
-        blockingCallFromThread(reactor, call)
-
-    (
-        VortexFactory.subscribeToVortexStatusChange(
-            CLIENT_VORTEX_NAME
-        ).subscribe(on_next=upDownTunnels)
-    )
-
-    d = serveVortexServer()
-
-    return d
-
-
 def main():
     logger.debug("Starting main")
     fileConfig = file_config.FileConfig()
@@ -222,19 +60,15 @@ def main():
     # import pydevd
     # pydevd.settrace(suspend=False)
 
-    setupLogging()
-
-    startTunnelsCallable, shutdownTunnelsCallable = createTunnels(fileConfig)
-
     # Load all Plugins
     if fileConfig.weAreServer:
-        d = setupForServer(startTunnelsCallable, shutdownTunnelsCallable)
+        websocketServerController = WebsocketServerController(fileConfig)
+        d = websocketServerController.setup()
     else:
-        d = setupForClient(startTunnelsCallable, shutdownTunnelsCallable)
+        websocketClientController = WebsocketClientController(fileConfig)
+        d = websocketClientController.setup()
 
     def startedSuccessfully(_):
-        import tcp_over_websocket
-
         logger.info(
             "TCP over Websocket running, version=%s",
             tcp_over_websocket.__version__,
@@ -253,4 +87,5 @@ if __name__ == "__main__":
 
         file_config.FileConfig.setHomePath(sys.argv[1])
 
+    setupLogging()
     main()

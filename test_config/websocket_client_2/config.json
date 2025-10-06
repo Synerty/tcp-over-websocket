@@ -1,0 +1,44 @@
+{
+    "clientId": 2,
+    "dataExchange": {
+        "enableMutualTLS": false,
+        "mutualTLSTrustedCACertificateBundleFilePath": "/Users/jchesney/Downloads/tcp_svr/trusted-ca.pem",
+        "mutualTLSTrustedPeerCertificateBundleFilePath": "/Users/jchesney/Downloads/tcp_svr/certs-of-peers.pem",
+        "serverUrl": "http://server:38080",
+        "tlsBundleFilePath": "/Users/jchesney/Downloads/tcp_svr/key-cert-ca-root-chain.pem"
+    },
+    "logging": {
+        "daysToKeep": 14,
+        "level": "DEBUG",
+        "logToStdout": true,
+        "syslog": {
+            "logToSysloyHost": null
+        }
+    },
+    "standbySocketCloseDurationSecs": 15,
+    "tcpTunnelConnects": [
+        {
+            "connectToHost": "tests",
+            "connectToPort": 39003,
+            "tunnelName": "server-to-client-tun1"
+        },
+        {
+            "connectToHost": "tests",
+            "connectToPort": 39004,
+            "tunnelName": "server-to-client-tun2"
+        }
+    ],
+    "tcpTunnelListens": [
+        {
+            "listenBindAddress": "0.0.0.0",
+            "listenPort": 38021,
+            "tunnelName": "client-to-server-tun1"
+        },
+        {
+            "listenBindAddress": "0.0.0.0",
+            "listenPort": 38022,
+            "tunnelName": "client-to-server-tun2"
+        }
+    ],
+    "weAreServer": false
+}

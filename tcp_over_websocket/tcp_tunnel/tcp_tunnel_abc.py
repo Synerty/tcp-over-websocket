@@ -1,9 +1,16 @@
-import logging
-import struct
-from abc import ABCMeta
-from collections import deque
+"""Abstract base class for TCP tunnel implementations.
 
-from twisted.internet import protocol
+This module provides the core tunneling logic that bridges TCP connections
+with WebSocket communication, including packet sequencing, connection management,
+and bidirectional data flow.
+"""
+
+import logging
+from abc import ABCMeta
+from abc import abstractmethod
+from collections import deque
+from typing import Dict
+
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.protocol import connectionDone
@@ -12,23 +19,74 @@ from vortex.PayloadEndpoint import PayloadEndpoint
 from vortex.PayloadEnvelope import PayloadEnvelope
 from vortex.VortexFactory import VortexFactory
 
+from .tunnel_protocol import TunnelProtocol
+
 
 logger = logging.getLogger(__name__)
 
 FILT_IS_DATA_KEY = "is_data"
 FILT_IS_CONTROL_KEY = "is_control"
 FILT_CONTROL_KEY = "control"
+FILT_CONNECTION_ID_KEY = "connection_id"
 FILT_CONTROL_MADE_VALUE = "made"
 FILT_CONTROL_LOST_VALUE = "lost"
 FILT_CONTROL_CLOSED_CLEANLY_VALUE = "closed_cleanly"
 
 
-class TcpTunnelABC(metaclass=ABCMeta):
-    side = None
+class GlobalConnectionCounter:
+    """Global connection counter to ensure unique connection IDs across all tunnels."""
+    _instance = None
+    _counter = 0
 
-    def __init__(self, tunnelName: str, otherVortexName: str):
+    @classmethod
+    def getInstance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def getNextConnectionNumber(cls) -> int:
+        """Get the next unique connection number across all tunnels."""
+        instance = cls.getInstance()
+        instance._counter += 1
+        return instance._counter
+
+
+class TcpTunnelABC(metaclass=ABCMeta):
+    """Abstract base class for TCP tunneling over WebSocket connections.
+
+    This class implements the core logic for tunneling TCP traffic through
+    WebSocket connections with the following features:
+
+    - Packet sequencing to ensure data ordering over WebSocket transport
+    - Connection lifecycle management (made/lost/closed events)
+    - Bidirectional data flow between TCP and WebSocket endpoints
+    - Connection multiplexing with unique connection IDs
+    - Data buffering for out-of-sequence packets
+
+    Subclasses implement either listen-side or connect-side tunnel behavior.
+    """
+
+    @property
+    @abstractmethod
+    def side(self) -> str:
+        """Get the tunnel side identifier.
+
+        Returns:
+            str: Either 'listen' or 'connect' to identify tunnel type
+        """
+
+    def __init__(self, tunnelName: str, activeRemoteController):
+        """Initialize the TCP tunnel.
+
+        Args:
+            tunnelName: Unique identifier for this tunnel
+            activeRemoteController: Controller for managing active remote endpoints
+        """
         self._tunnelName = tunnelName
-        self._otherVortexName = otherVortexName
+        self._activeRemoteController = activeRemoteController
+        self._connectionIdPrefix = self._generateConnectionIdPrefix()
+        self._activeConnections: Dict[str, "TunnelProtocol"] = {}
 
         self._listenFilt = dict(key=tunnelName)
 
@@ -38,24 +96,46 @@ class TcpTunnelABC(metaclass=ABCMeta):
         self._sendControlFilt = {FILT_IS_CONTROL_KEY: True}
         self._sendControlFilt.update(self._listenFilt)
 
-        self._factory = _ABCFactory(
-            self._processFromTcp,
-            self._localConnectionMade,
-            self._localConnectionLost,
-            self._tunnelName,
-        )
-        self._tcpServer = None
         self._endpoint = None
 
-        self._isLocalConnected = False
-        self._dataBuffer: deque[bytes] = deque()
+        self._connectionDataBuffers: Dict[str, deque[bytes]] = {}
+
+    def _generateConnectionIdPrefix(self) -> str:
+        """Generate connection ID prefix based on component type and client ID.
+
+        Returns:
+            str: Prefix for connection IDs ("S" for server, "C1"/"C2" for clients)
+        """
+        from tcp_over_websocket.config import file_config
+
+        try:
+            fileConfig = file_config.FileConfig()
+
+            if fileConfig.weAreServer:
+                return "S"
+            else:
+                return f"C{fileConfig.clientId}"
+        except:
+            # Fallback if config is not available
+            return "C1"
+
+    def _generateConnectionId(self) -> str:
+        """Generate a unique connection ID with proper prefix.
+
+        Returns:
+            str: Unique connection ID in format "PREFIX.COUNTER"
+        """
+        connectionNumber = GlobalConnectionCounter.getNextConnectionNumber()
+        return f"{self._connectionIdPrefix}.{connectionNumber}"
 
     def _start(self):
+        """Start the tunnel endpoint for receiving WebSocket messages."""
         self._endpoint = PayloadEndpoint(
             self._listenFilt, self._processFromVortex
         )
 
     def _shutdown(self):
+        """Shutdown the tunnel endpoint and clean up resources."""
         if self._endpoint:
             self._endpoint.shutdown()
             self._endpoint = None
@@ -64,12 +144,30 @@ class TcpTunnelABC(metaclass=ABCMeta):
     def _processFromVortex(
         self, payloadEnvelope: PayloadEnvelope, *args, **kwargs
     ):
+        """Process incoming messages from WebSocket/Vortex layer.
+
+        Handles both data packets and control messages (connection lifecycle events).
+        Data packets are routed to the appropriate TCP connection, while control
+        messages trigger connection management actions.
+
+        Args:
+            payloadEnvelope: Message containing data or control information
+        """
+        connectionId = payloadEnvelope.filt.get(FILT_CONNECTION_ID_KEY)
+
         if payloadEnvelope.filt.get(FILT_IS_DATA_KEY):
-            if payloadEnvelope.data:
-                if self._isLocalConnected:
-                    self._factory.write(payloadEnvelope.data)
+            if payloadEnvelope.data and connectionId:
+                if connectionId in self._activeConnections:
+                    self._activeConnections[connectionId].write(
+                        payloadEnvelope.data
+                    )
                 else:
-                    self._dataBuffer.append(payloadEnvelope.data)
+                    # Buffer data for connections that haven't been established yet
+                    if connectionId not in self._connectionDataBuffers:
+                        self._connectionDataBuffers[connectionId] = deque()
+                    self._connectionDataBuffers[connectionId].append(
+                        payloadEnvelope.data
+                    )
             return
 
         assert payloadEnvelope.filt.get(
@@ -77,12 +175,14 @@ class TcpTunnelABC(metaclass=ABCMeta):
         ), "We received an unknown payloadEnvelope"
 
         method = {
-            FILT_CONTROL_MADE_VALUE: self._remoteConnectionMade,
+            FILT_CONTROL_MADE_VALUE: lambda: self._remoteConnectionMade(
+                connectionId
+            ),
             FILT_CONTROL_LOST_VALUE: lambda: self._remoteConnectionLost(
-                cleanly=False
+                connectionId, cleanly=False
             ),
             FILT_CONTROL_CLOSED_CLEANLY_VALUE: lambda: self._remoteConnectionLost(
-                cleanly=True
+                connectionId, cleanly=True
             ),
         }
 
@@ -90,45 +190,106 @@ class TcpTunnelABC(metaclass=ABCMeta):
         assert control in method, "We received an unknown control command"
         yield method[control]()
 
-    def _processFromTcp(self, data: bytes):
-        self._send(self._sendDataFilt, data=data)
+    def _processFromTcp(self, connectionId: str, data: bytes):
+        """Process data received from TCP connection for transmission over WebSocket.
+
+        Args:
+            connectionId: Unique identifier for the TCP connection
+            data: Raw bytes received from TCP connection
+        """
+        filt = dict(self._sendDataFilt)
+        filt[FILT_CONNECTION_ID_KEY] = connectionId
+        self._send(filt, data=data)
 
     def _send(self, filt, data=None):
+        """Send data or control messages over WebSocket to remote endpoint.
+
+        Args:
+            filt: Message filter/routing information
+            data: Optional data payload to send
+        """
         # This is intentionally blocking, to ensure data is in sequence
         vortexMsg = PayloadEnvelope(filt, data=data).toVortexMsg()
 
-        VortexFactory.sendVortexMsg(
-            vortexMsg,
-            destVortexName=self._otherVortexName,
+        remoteVortexName = (
+            self._activeRemoteController.getActiveRemoteVortexName()
         )
+        if remoteVortexName:
+            VortexFactory.sendVortexMsg(
+                vortexMsg,
+                destVortexName=remoteVortexName,
+            )
+        else:
+            logger.warning(
+                f"No active remote available for tunnel [{self._tunnelName}]"
+            )
 
-    def _localConnectionMade(self):
+    def _localConnectionMade(
+        self, connectionId: str, protocol: "TunnelProtocol"
+    ):
+        """Handle new local TCP connection establishment.
+
+        Registers the connection, sends buffered data if any exists,
+        and notifies the remote endpoint about the new connection.
+
+        Args:
+            connectionId: Unique identifier for this connection
+            protocol: Protocol instance handling the TCP connection
+        """
         logger.debug(
             f"Local tcp {self.side} connection made"
-            f" for [{self._tunnelName}]"
+            f" for [{self._tunnelName}] connection [{connectionId}]"
         )
+
+        self._activeConnections[connectionId] = protocol
+
+        # Send any buffered data for this connection
+        if connectionId in self._connectionDataBuffers:
+            while self._connectionDataBuffers[connectionId]:
+                protocol.write(
+                    self._connectionDataBuffers[connectionId].popleft()
+                )
+            del self._connectionDataBuffers[connectionId]
+
         filt = {FILT_CONTROL_KEY: FILT_CONTROL_MADE_VALUE}
         filt.update(self._sendControlFilt)
-        # Give any data a chance to be sent
-        self._isLocalConnected = True
-        while self._dataBuffer:
-            self._factory.write(self._dataBuffer.popleft())
+        filt[FILT_CONNECTION_ID_KEY] = connectionId
         self._send(filt)
 
-    def _localConnectionLost(self, reason: Failure, failedToConnect=False):
-        self._isLocalConnected = False
+    def _localConnectionLost(
+        self, connectionId: str, reason: Failure, failedToConnect=False
+    ):
+        """Handle local TCP connection termination.
+
+        Cleans up connection state and notifies remote endpoint about
+        the connection closure.
+
+        Args:
+            connectionId: Unique identifier for the closed connection
+            reason: Reason for connection termination
+            failedToConnect: True if connection failed to establish initially
+        """
+        # Clean up connection state
+        if connectionId in self._activeConnections:
+            del self._activeConnections[connectionId]
+
+        # Clean up any buffered data
+        if connectionId in self._connectionDataBuffers:
+            del self._connectionDataBuffers[connectionId]
+
         if not failedToConnect:
             if reason == connectionDone or reason.value is None:
                 logger.debug(
                     f"Local tcp {self.side} connection closed cleanly"
-                    f" for [{self._tunnelName}]"
+                    f" for [{self._tunnelName}] connection [{connectionId}]"
                 )
             else:
                 logger.debug(
                     f"Local tcp {self.side} connection lost"
-                    f" for [{self._tunnelName}],"
+                    f" for [{self._tunnelName}] connection [{connectionId}],"
                     f" reason={reason.getErrorMessage()}"
                 )
+
         filt = {
             FILT_CONTROL_KEY: (
                 FILT_CONTROL_CLOSED_CLEANLY_VALUE
@@ -137,175 +298,98 @@ class TcpTunnelABC(metaclass=ABCMeta):
             )
         }
         filt.update(self._sendControlFilt)
-        # Give any data a chance to be sent
+        filt[FILT_CONNECTION_ID_KEY] = connectionId
         self._send(filt)
 
-    def _remoteConnectionMade(self):
+    def _remoteConnectionMade(self, connectionId: str):
+        """Handle remote TCP connection establishment notification.
+
+        Called when the remote endpoint successfully establishes
+        its corresponding TCP connection.
+
+        Args:
+            connectionId: Unique identifier for the remote connection
+        """
         logger.debug(
             f"Remote of tcp {self.side} connection made"
-            f" for [{self._tunnelName}]"
+            f" for [{self._tunnelName}] connection [{connectionId}]"
         )
 
-    def _remoteConnectionLost(self, cleanly: bool):
+    def _remoteConnectionLost(self, connectionId: str, cleanly: bool):
+        """Handle remote TCP connection termination notification.
+
+        Closes the corresponding local TCP connection when the
+        remote endpoint reports connection termination.
+
+        Args:
+            connectionId: Unique identifier for the remote connection
+            cleanly: True if remote connection closed cleanly
+        """
         if cleanly:
             logger.debug(
                 f"Remote of tcp {self.side} connection closed cleanly"
-                f" for"
-                f" [{self._tunnelName}]"
+                f" for [{self._tunnelName}] connection [{connectionId}]"
             )
         else:
             logger.debug(
                 f"Remote of tcp {self.side} connection lost"
-                f" for [{self._tunnelName}]"
+                f" for [{self._tunnelName}] connection [{connectionId}]"
             )
 
+        # Close the local connection for this specific connection ID
+        if connectionId in self._activeConnections:
+            protocol = self._activeConnections[connectionId]
+            # Remove from active connections immediately to prevent duplicate processing
+            del self._activeConnections[connectionId]
 
-class _ABCProtocol(protocol.Protocol):
-    def __init__(
-        self,
-        dataReceivedCallable,
-        connectionMadeCallable,
-        connectionLostCallable,
-        tunnelName,
-    ):
-        self._dataReceivedCallable = dataReceivedCallable
-        self._connectionMadeCallable = connectionMadeCallable
-        self._connectionLostCallable = connectionLostCallable
-        self._tunnelName = tunnelName
-        self._sendPacketSequence = 1
-        self._receivedPacketSequence = 1
-        self._receivedDataBySequence: dict[int, bytes] = {}
+            # Clean up any buffered data
+            if connectionId in self._connectionDataBuffers:
+                del self._connectionDataBuffers[connectionId]
 
-    def connectionMade(self):
-        try:
-            self._connectionMadeCallable()
-        except Exception as e:
-            logger.exception(e)
+            # Close using the protocol's transport (all our protocols have transport)
+            if protocol.transport:
+                reactor.callLater(0, protocol.transport.loseConnection)
 
-    def connectionLost(self, reason: Failure = connectionDone):
-        logger.debug(
-            "Final SEND SEQ %s for [%s]",
-            self._sendPacketSequence,
-            self._tunnelName,
-        )
-        logger.debug(
-            "Final RECEIVED SEQ %s for [%s]",
-            self._receivedPacketSequence,
-            self._tunnelName,
-        )
+    @inlineCallbacks
+    def _closeConnection(self, connectionId: str):
+        """Close a specific connection.
 
-        try:
-            self._connectionLostCallable(reason)
-        except Exception as e:
-            logger.exception(e)
-
-    def dataReceived(self, data):
-        try:
-            data = struct.pack("!Q", self._sendPacketSequence) + data
-            self._dataReceivedCallable(data)
-            self._sendPacketSequence += 1
-
-        except Exception as e:
-            logger.exception(e)
-
-    def write(self, data: bytes):
-        """Write
-
-        This is us receiving data from the vortex, and sending it to the
-        socket
+        Args:
+            connectionId: Unique identifier for connection to close
         """
-        seq = struct.unpack("!Q", data[:8])[0]
-        data = data[8:]
-        self._receivedDataBySequence[seq] = data
-        if seq != self._receivedPacketSequence:
+        yield None
+        if connectionId in self._activeConnections:
+            protocol = self._activeConnections[connectionId]
+            del self._activeConnections[connectionId]
+
+            # Clean up any buffered data
+            if connectionId in self._connectionDataBuffers:
+                del self._connectionDataBuffers[connectionId]
+
             logger.debug(
-                "Received out of order package %s, expected %s, "
-                "correcting it for [%s]",
-                seq,
-                self._receivedPacketSequence,
-                self._tunnelName,
+                f"Closing tcp {self.side} for [{self._tunnelName}] connection [{connectionId}]"
             )
 
-        while self._receivedPacketSequence in self._receivedDataBySequence:
-            data = self._receivedDataBySequence.pop(
-                self._receivedPacketSequence
-            )
-            self._receivedPacketSequence += 1
+            # Close using the protocol's transport (all our protocols have transport)
+            if protocol.transport:
+                protocol.transport.loseConnection()
 
-            try:
-                self.transport.write(data)
-            except Exception as e:
-                logger.exception(e)
-                self.transport.loseConnection()
-
-        if len(self._receivedDataBySequence) == 1000:
-            logger.error(
-                "Missing sequence %s, it's not turned up after 1000"
-                " packets, for [%s]",
-                self._receivedPacketSequence,
-                self._tunnelName,
+            logger.debug(
+                f"Closed tcp {self.side} for [{self._tunnelName}] connection [{connectionId}]"
             )
-            self.transport.loseConnection()
+
+    @abstractmethod
+    def _onFirstDataReceived(self, protocol):
+        """Handle first data received on a connection (for failover logic).
+
+        Args:
+            protocol: The protocol instance that received the first data
+        """
+        pass
 
     @inlineCallbacks
-    def close(self):
-        try:
-            logger.debug(f"Closing tcp connect for [{self._tunnelName}]")
-            yield self.transport.loseConnection()
-            logger.debug(f"Closed tcp connect for [{self._tunnelName}]")
-        except Exception as e:
-            logger.exception(
-                "There was an issue with closing the TCP"
-                " connection for [%s]. Exception: %s",
-                self._tunnelName,
-                e,
-            )
-
-
-class _ABCFactory(protocol.Factory):
-    def __init__(
-        self,
-        dataReceivedCallable,
-        connectionMadeCallable,
-        connectionLostCallable,
-        tunnelName,
-    ):
-        self._dataReceivedCallable = dataReceivedCallable
-        self._connectionMadeCallable = connectionMadeCallable
-        self._connectionLostCallable = connectionLostCallable
-        self._tunnelName = tunnelName
-        self._lastProtocol = None
-
-    def buildProtocol(self, addr):
-        if self._lastProtocol:
-            reactor.callLater(0, self._closeProtocol, self._lastProtocol)
-        self._lastProtocol = _ABCProtocol(
-            self._dataReceivedCallable,
-            self._connectionMadeCallable,
-            self._connectionLostCallable,
-            self._tunnelName,
-        )
-        return self._lastProtocol
-
-    def write(self, data: bytes):
-        assert self._lastProtocol, "We have no last protocol"
-        self._lastProtocol.write(data)
-
-    @inlineCallbacks
-    def closeLastConnection(self):
-        if self._lastProtocol:
-            protocol = self._lastProtocol
-            self._lastProtocol = None
-            yield self._closeProtocol(protocol)
-
-    @inlineCallbacks
-    def _closeProtocol(self, protocol):
-        logger.debug(
-            f"Disconnecting existing tcp connections"
-            f" for [{self._tunnelName}]"
-        )
-        yield protocol.close()
-        logger.debug(
-            f"Disconnected existing tcp connections"
-            f" for [{self._tunnelName}]"
-        )
+    def _closeAllConnections(self):
+        """Close all active connections for this tunnel."""
+        connectionIds = list(self._activeConnections.keys())
+        for connectionId in connectionIds:
+            yield self._closeConnection(connectionId)

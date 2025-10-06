@@ -1,0 +1,9 @@
+FROM tcp-over-websocket-base:latest
+
+# Copy client 2 configuration
+COPY test_config/websocket_client_2/config.json /root/tcp-over-websocket.home/
+
+# Expose client ports for both tunnels
+EXPOSE 38021 38022
+
+CMD ["run_tcp_over_websocket_service", "/root/tcp-over-websocket.home"]

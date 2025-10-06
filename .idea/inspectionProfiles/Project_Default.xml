@@ -1,19 +1,114 @@
 <component name="InspectionProjectProfileManager">
   <profile version="1.0">
     <option name="myName" value="Project Default" />
-    <inspection_tool class="DuplicatedCode" enabled="false" level="WEAK WARNING" enabled_by_default="false">
-      <GlobalSettings restrictedDuplicateScope="SAME_FILE" />
+    <inspection_tool class="DuplicatedCode" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+    <inspection_tool class="ES6PreferShortImport" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="HtmlUnknownAttribute" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="myValues">
+        <value>
+          <list size="2">
+            <item index="0" class="java.lang.String" itemvalue="[ngSwitch]" />
+            <item index="1" class="java.lang.String" itemvalue="*ngIf" />
+          </list>
+        </value>
+      </option>
+      <option name="myCustomValuesEnabled" value="true" />
     </inspection_tool>
-    <inspection_tool class="Eslint" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="JSMethodCanBeStatic" enabled="false" level="INFORMATION" enabled_by_default="false" />
-    <inspection_tool class="PyPep8NamingInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
-    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
-      <option name="ignoredIdentifiers">
+    <inspection_tool class="HtmlUnknownTag" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="myValues">
+        <value>
+          <list size="12">
+            <item index="0" class="java.lang.String" itemvalue="nobr" />
+            <item index="1" class="java.lang.String" itemvalue="noembed" />
+            <item index="2" class="java.lang.String" itemvalue="comment" />
+            <item index="3" class="java.lang.String" itemvalue="noscript" />
+            <item index="4" class="java.lang.String" itemvalue="embed" />
+            <item index="5" class="java.lang.String" itemvalue="script" />
+            <item index="6" class="java.lang.String" itemvalue="nz-card-head" />
+            <item index="7" class="java.lang.String" itemvalue="nz-tabs" />
+            <item index="8" class="java.lang.String" itemvalue="nz-card-body" />
+            <item index="9" class="java.lang.String" itemvalue="nz-tab" />
+            <item index="10" class="java.lang.String" itemvalue="nz-tabset" />
+            <item index="11" class="java.lang.String" itemvalue="nz-card" />
+          </list>
+        </value>
+      </option>
+      <option name="myCustomValuesEnabled" value="true" />
+    </inspection_tool>
+    <inspection_tool class="PyMethodMayBeStaticInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
         <list>
-          <option value="peek_abstract_chunked_index.private.tuples.ACIEncodedChunkTupleABC.sqlCoreLoad.__self__" />
+          <option value="alabaster" />
+          <option value="attrs" />
+          <option value="autobahn" />
+          <option value="Automat" />
+          <option value="Babel" />
+          <option value="certifi" />
+          <option value="cffi" />
+          <option value="charset-normalizer" />
+          <option value="constantly" />
+          <option value="cryptography" />
+          <option value="ddt" />
+          <option value="docutils" />
+          <option value="filetype" />
+          <option value="future" />
+          <option value="GeoAlchemy2" />
+          <option value="greenlet" />
+          <option value="hyperlink" />
+          <option value="idna" />
+          <option value="imagesize" />
+          <option value="incremental" />
+          <option value="Jinja2" />
+          <option value="json-cfg-rw" />
+          <option value="kwonly-args" />
+          <option value="MarkupSafe" />
+          <option value="packaging" />
+          <option value="pem" />
+          <option value="psutil" />
+          <option value="pyasn1" />
+          <option value="pyasn1-modules" />
+          <option value="pycparser" />
+          <option value="Pygments" />
+          <option value="pyOpenSSL" />
+          <option value="pytmpdir" />
+          <option value="pytz" />
+          <option value="requests" />
+          <option value="Rx" />
+          <option value="service-identity" />
+          <option value="six" />
+          <option value="snowballstemmer" />
+          <option value="Sphinx" />
+          <option value="sphinx-rtd-theme" />
+          <option value="sphinxcontrib-applehelp" />
+          <option value="sphinxcontrib-devhelp" />
+          <option value="sphinxcontrib-htmlhelp" />
+          <option value="sphinxcontrib-jquery" />
+          <option value="sphinxcontrib-jsmath" />
+          <option value="sphinxcontrib-qthelp" />
+          <option value="sphinxcontrib-serializinghtml" />
+          <option value="SQLAlchemy" />
+          <option value="treelib" />
+          <option value="Twisted" />
+          <option value="txaio" />
+          <option value="txhttputil" />
+          <option value="txwebsocket" />
+          <option value="typing_extensions" />
+          <option value="urllib3" />
+          <option value="vcversioner" />
+          <option value="vortexpy" />
+          <option value="zope.interface" />
         </list>
       </option>
     </inspection_tool>
-    <inspection_tool class="TsLint" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N806" />
+          <option value="N803" />
+          <option value="N802" />
+        </list>
+      </option>
+    </inspection_tool>
   </profile>
 </component>
