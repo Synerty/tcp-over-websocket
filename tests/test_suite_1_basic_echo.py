@@ -11,7 +11,7 @@ import pytest
 
 from util_socket_methods import resetActiveClient, triggerFailoverToClient2
 from util_port_config import get_port_config
-from util_tcp_socket import ConnectionEndState, UtilTcpSocket
+from util_tcp_socket import UtilTcpSocket
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,10 @@ class TestBasicEcho:
 
         # Start echo server on backend port that tunnel will connect to
         echoPort = portConfig.serverToClient1Tun1ConnectPort
-        echoServer = UtilTcpSocket("echo_backend", shouldEchoData=True, enableEchoLimit=True)
+        echoServer = UtilTcpSocket(
+            "echo_backend",
+            shouldEchoData=True,
+        )
         listening = await echoServer.startListen(port=echoPort, host="0.0.0.0")
         assert listening, f"Failed to start echo server on port {echoPort}"
 
@@ -48,7 +51,9 @@ class TestBasicEcho:
                 receivedData, success = await conn.sendDataExpectEcho(sentData)
 
                 assert success, "Failed to send and receive"
-                assert b"HELLO" in receivedData, "Response does not contain HELLO"
+                assert (
+                    b"HELLO" in receivedData
+                ), "Response does not contain HELLO"
                 logger.info(
                     "Test 1.1: Successfully validated server-to-client tunnel 1 echo"
                 )
@@ -64,7 +69,10 @@ class TestBasicEcho:
 
         # Start echo server on shared backend port
         echoPort = portConfig.clientToServerTun1ConnectPort
-        echoServer = UtilTcpSocket("echo_backend", shouldEchoData=True, enableEchoLimit=True)
+        echoServer = UtilTcpSocket(
+            "echo_backend",
+            shouldEchoData=True,
+        )
         listening = await echoServer.startListen(port=echoPort, host="0.0.0.0")
         assert listening, f"Failed to start echo server on port {echoPort}"
 
@@ -81,7 +89,9 @@ class TestBasicEcho:
                 receivedData, success = await conn.sendDataExpectEcho(sentData)
 
                 assert success, "Failed to send and receive"
-                assert b"WORLD" in receivedData, "Response does not contain WORLD"
+                assert (
+                    b"WORLD" in receivedData
+                ), "Response does not contain WORLD"
                 logger.info(
                     "Test 1.2: Successfully validated client-to-server tunnel 1 echo"
                 )
@@ -97,7 +107,10 @@ class TestBasicEcho:
 
         # Start echo servers for both backends
         serverEchoPort = portConfig.serverToClient1Tun1ConnectPort
-        serverEchoServer = UtilTcpSocket("server_echo_backend", shouldEchoData=True, enableEchoLimit=True)
+        serverEchoServer = UtilTcpSocket(
+            "server_echo_backend",
+            shouldEchoData=True,
+        )
         serverListening = await serverEchoServer.startListen(
             port=serverEchoPort, host="0.0.0.0"
         )
@@ -106,7 +119,10 @@ class TestBasicEcho:
         ), f"Failed to start server echo server on port {serverEchoPort}"
 
         clientEchoPort = portConfig.clientToServerTun1ConnectPort
-        clientEchoServer = UtilTcpSocket("client_echo_backend", shouldEchoData=True, enableEchoLimit=True)
+        clientEchoServer = UtilTcpSocket(
+            "client_echo_backend",
+            shouldEchoData=True,
+        )
         clientListening = await clientEchoServer.startListen(
             port=clientEchoPort, host="0.0.0.0"
         )
@@ -118,12 +134,18 @@ class TestBasicEcho:
             # Test server tunnel first
             serverTunnelPort = portConfig.serverToClientTun1ListenPort
             serverConn = UtilTcpSocket("test_1_3_server")
-            serverConnected = await serverConn.startConnect("server", serverTunnelPort)
-            assert serverConnected, f"Failed to connect to server:{serverTunnelPort}"
+            serverConnected = await serverConn.startConnect(
+                "server", serverTunnelPort
+            )
+            assert (
+                serverConnected
+            ), f"Failed to connect to server:{serverTunnelPort}"
 
             try:
                 sentData = b"SERVER"
-                receivedData, success = await serverConn.sendDataExpectEcho(sentData)
+                receivedData, success = await serverConn.sendDataExpectEcho(
+                    sentData
+                )
                 assert success, "Failed to send and receive from server tunnel"
                 assert (
                     b"SERVER" in receivedData
@@ -134,12 +156,18 @@ class TestBasicEcho:
             # Test client tunnel
             clientTunnelPort = portConfig.client1ToServerTun1ListenPort
             clientConn = UtilTcpSocket("test_1_3_client")
-            clientConnected = await clientConn.startConnect("client1", clientTunnelPort)
-            assert clientConnected, f"Failed to connect to client1:{clientTunnelPort}"
+            clientConnected = await clientConn.startConnect(
+                "client1", clientTunnelPort
+            )
+            assert (
+                clientConnected
+            ), f"Failed to connect to client1:{clientTunnelPort}"
 
             try:
                 sentData = b"CLIENT"
-                receivedData, success = await clientConn.sendDataExpectEcho(sentData)
+                receivedData, success = await clientConn.sendDataExpectEcho(
+                    sentData
+                )
                 assert success, "Failed to send and receive from client tunnel"
                 assert (
                     b"CLIENT" in receivedData
@@ -147,7 +175,9 @@ class TestBasicEcho:
             finally:
                 await clientConn.close()
 
-            logger.info("Test 1.3: Successfully validated combined tunnels sequential")
+            logger.info(
+                "Test 1.3: Successfully validated combined tunnels sequential"
+            )
         finally:
             await serverEchoServer.close()
             await clientEchoServer.close()
@@ -171,20 +201,30 @@ class TestBasicEcho:
 
         # Start echo servers for both tunnel backends
         tun1EchoPort = portConfig.serverToClient1Tun1ConnectPort
-        tun1EchoServer = UtilTcpSocket("tun1_echo_backend", shouldEchoData=True, enableEchoLimit=True)
+        tun1EchoServer = UtilTcpSocket(
+            "tun1_echo_backend",
+            shouldEchoData=True,
+        )
         tun1EchoServer.setOnClientConnected(on_tun1_client_connected)
         tun1Listening = await tun1EchoServer.startListen(
             port=tun1EchoPort, host="0.0.0.0"
         )
-        assert tun1Listening, f"Failed to start tun1 echo server on port {tun1EchoPort}"
+        assert (
+            tun1Listening
+        ), f"Failed to start tun1 echo server on port {tun1EchoPort}"
 
         tun2EchoPort = portConfig.serverToClient1Tun2ConnectPort
-        tun2EchoServer = UtilTcpSocket("tun2_echo_backend", shouldEchoData=True, enableEchoLimit=True)
+        tun2EchoServer = UtilTcpSocket(
+            "tun2_echo_backend",
+            shouldEchoData=True,
+        )
         tun2EchoServer.setOnClientConnected(on_tun2_client_connected)
         tun2Listening = await tun2EchoServer.startListen(
             port=tun2EchoPort, host="0.0.0.0"
         )
-        assert tun2Listening, f"Failed to start tun2 echo server on port {tun2EchoPort}"
+        assert (
+            tun2Listening
+        ), f"Failed to start tun2 echo server on port {tun2EchoPort}"
 
         try:
             # Connect to both tunnel endpoints
@@ -214,8 +254,12 @@ class TestBasicEcho:
 
                 assert success1, "Failed to send and receive from tunnel 1"
                 assert success2, "Failed to send and receive from tunnel 2"
-                assert b"TUN1" in data1, "Tunnel 1 response does not contain TUN1"
-                assert b"TUN2" in data2, "Tunnel 2 response does not contain TUN2"
+                assert (
+                    b"TUN1" in data1
+                ), "Tunnel 1 response does not contain TUN1"
+                assert (
+                    b"TUN2" in data2
+                ), "Tunnel 2 response does not contain TUN2"
 
                 logger.info(
                     "Test 1.4: Successfully validated both tunnels simultaneously"
@@ -239,7 +283,10 @@ class TestBasicEcho:
 
         # Start echo server on client2 backend port
         echoPort = portConfig.serverToClient2Tun1ConnectPort
-        echoServer = UtilTcpSocket("echo_backend_c2", shouldEchoData=True, enableEchoLimit=True)
+        echoServer = UtilTcpSocket(
+            "echo_backend_c2",
+            shouldEchoData=True,
+        )
         listening = await echoServer.startListen(port=echoPort, host="0.0.0.0")
         assert listening, f"Failed to start echo server on port {echoPort}"
 
@@ -256,7 +303,9 @@ class TestBasicEcho:
                 receivedData, success = await conn.sendDataExpectEcho(sentData)
 
                 assert success, "Failed to send and receive"
-                assert b"HELLO" in receivedData, "Response does not contain HELLO"
+                assert (
+                    b"HELLO" in receivedData
+                ), "Response does not contain HELLO"
                 logger.info(
                     "Test 1.6: Successfully validated server-to-client tunnel 1 echo (client 2)"
                 )
@@ -272,7 +321,10 @@ class TestBasicEcho:
 
         # Start echo server on shared backend port
         echoPort = portConfig.clientToServerTun1ConnectPort
-        echoServer = UtilTcpSocket("echo_backend_c2", shouldEchoData=True, enableEchoLimit=True)
+        echoServer = UtilTcpSocket(
+            "echo_backend_c2",
+            shouldEchoData=True,
+        )
         listening = await echoServer.startListen(port=echoPort, host="0.0.0.0")
         assert listening, f"Failed to start echo server on port {echoPort}"
 
@@ -289,7 +341,9 @@ class TestBasicEcho:
                 receivedData, success = await conn.sendDataExpectEcho(sentData)
 
                 assert success, "Failed to send and receive"
-                assert b"WORLD" in receivedData, "Response does not contain WORLD"
+                assert (
+                    b"WORLD" in receivedData
+                ), "Response does not contain WORLD"
                 logger.info(
                     "Test 1.7: Successfully validated client-to-server tunnel 1 echo (client 2)"
                 )
@@ -305,7 +359,10 @@ class TestBasicEcho:
 
         # Start echo servers for both backends
         serverEchoPort = portConfig.serverToClient2Tun1ConnectPort
-        serverEchoServer = UtilTcpSocket("server_echo_backend_c2", shouldEchoData=True, enableEchoLimit=True)
+        serverEchoServer = UtilTcpSocket(
+            "server_echo_backend_c2",
+            shouldEchoData=True,
+        )
         serverListening = await serverEchoServer.startListen(
             port=serverEchoPort, host="0.0.0.0"
         )
@@ -314,7 +371,10 @@ class TestBasicEcho:
         ), f"Failed to start server echo server on port {serverEchoPort}"
 
         clientEchoPort = portConfig.clientToServerTun1ConnectPort
-        clientEchoServer = UtilTcpSocket("client_echo_backend_c2", shouldEchoData=True, enableEchoLimit=True)
+        clientEchoServer = UtilTcpSocket(
+            "client_echo_backend_c2",
+            shouldEchoData=True,
+        )
         clientListening = await clientEchoServer.startListen(
             port=clientEchoPort, host="0.0.0.0"
         )
@@ -326,12 +386,18 @@ class TestBasicEcho:
             # Test server tunnel first
             serverTunnelPort = portConfig.serverToClientTun1ListenPort
             serverConn = UtilTcpSocket("test_1_8_server")
-            serverConnected = await serverConn.startConnect("server", serverTunnelPort)
-            assert serverConnected, f"Failed to connect to server:{serverTunnelPort}"
+            serverConnected = await serverConn.startConnect(
+                "server", serverTunnelPort
+            )
+            assert (
+                serverConnected
+            ), f"Failed to connect to server:{serverTunnelPort}"
 
             try:
                 sentData = b"SERVER"
-                receivedData, success = await serverConn.sendDataExpectEcho(sentData)
+                receivedData, success = await serverConn.sendDataExpectEcho(
+                    sentData
+                )
                 assert success, "Failed to send and receive from server tunnel"
                 assert (
                     b"SERVER" in receivedData
@@ -342,12 +408,18 @@ class TestBasicEcho:
             # Test client tunnel
             clientTunnelPort = portConfig.client2ToServerTun1ListenPort
             clientConn = UtilTcpSocket("test_1_8_client")
-            clientConnected = await clientConn.startConnect("client2", clientTunnelPort)
-            assert clientConnected, f"Failed to connect to client2:{clientTunnelPort}"
+            clientConnected = await clientConn.startConnect(
+                "client2", clientTunnelPort
+            )
+            assert (
+                clientConnected
+            ), f"Failed to connect to client2:{clientTunnelPort}"
 
             try:
                 sentData = b"CLIENT"
-                receivedData, success = await clientConn.sendDataExpectEcho(sentData)
+                receivedData, success = await clientConn.sendDataExpectEcho(
+                    sentData
+                )
                 assert success, "Failed to send and receive from client tunnel"
                 assert (
                     b"CLIENT" in receivedData
@@ -373,28 +445,42 @@ class TestBasicEcho:
 
         async def on_tun1_client_connected(clientId: int):
             tun1_clients.append(clientId)
-            logger.debug(f"Tun1 echo server (client2): client {clientId} connected")
+            logger.debug(
+                f"Tun1 echo server (client2): client {clientId} connected"
+            )
 
         async def on_tun2_client_connected(clientId: int):
             tun2_clients.append(clientId)
-            logger.debug(f"Tun2 echo server (client2): client {clientId} connected")
+            logger.debug(
+                f"Tun2 echo server (client2): client {clientId} connected"
+            )
 
         # Start echo servers for both tunnel backends
         tun1EchoPort = portConfig.serverToClient2Tun1ConnectPort
-        tun1EchoServer = UtilTcpSocket("tun1_echo_backend_c2", shouldEchoData=True, enableEchoLimit=True)
+        tun1EchoServer = UtilTcpSocket(
+            "tun1_echo_backend_c2",
+            shouldEchoData=True,
+        )
         tun1EchoServer.setOnClientConnected(on_tun1_client_connected)
         tun1Listening = await tun1EchoServer.startListen(
             port=tun1EchoPort, host="0.0.0.0"
         )
-        assert tun1Listening, f"Failed to start tun1 echo server on port {tun1EchoPort}"
+        assert (
+            tun1Listening
+        ), f"Failed to start tun1 echo server on port {tun1EchoPort}"
 
         tun2EchoPort = portConfig.serverToClient2Tun2ConnectPort
-        tun2EchoServer = UtilTcpSocket("tun2_echo_backend_c2", shouldEchoData=True, enableEchoLimit=True)
+        tun2EchoServer = UtilTcpSocket(
+            "tun2_echo_backend_c2",
+            shouldEchoData=True,
+        )
         tun2EchoServer.setOnClientConnected(on_tun2_client_connected)
         tun2Listening = await tun2EchoServer.startListen(
             port=tun2EchoPort, host="0.0.0.0"
         )
-        assert tun2Listening, f"Failed to start tun2 echo server on port {tun2EchoPort}"
+        assert (
+            tun2Listening
+        ), f"Failed to start tun2 echo server on port {tun2EchoPort}"
 
         try:
             # Connect to both tunnel endpoints
@@ -424,8 +510,12 @@ class TestBasicEcho:
 
                 assert success1, "Failed to send and receive from tunnel 1"
                 assert success2, "Failed to send and receive from tunnel 2"
-                assert b"TUN1" in data1, "Tunnel 1 response does not contain TUN1"
-                assert b"TUN2" in data2, "Tunnel 2 response does not contain TUN2"
+                assert (
+                    b"TUN1" in data1
+                ), "Tunnel 1 response does not contain TUN1"
+                assert (
+                    b"TUN2" in data2
+                ), "Tunnel 2 response does not contain TUN2"
 
                 logger.info(
                     "Test 1.9: Successfully validated both tunnels simultaneously (client 2)"

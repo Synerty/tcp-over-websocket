@@ -42,7 +42,11 @@ class TestDataQuality:
 
         # Start echo server on backend port
         echo_port = portConfig.serverToClient1Tun1ConnectPort
-        echo_server = UtilTcpSocket("echo_backend_2_1", shouldEchoData=True)
+        echo_server = UtilTcpSocket(
+            "echo_backend_2_1",
+            shouldEchoData=True,
+            logTrafficEvents=False,
+        )
         listening = await echo_server.startListen(
             port=echo_port, host="0.0.0.0"
         )
@@ -51,7 +55,7 @@ class TestDataQuality:
         try:
             # Connect to tunnel endpoint
             tunnel_port = portConfig.serverToClientTun1ListenPort
-            conn = UtilTcpSocket("test_3_1")
+            conn = UtilTcpSocket("test_3_1", logTrafficEvents=False)
             connected = await conn.startConnect("server", tunnel_port)
             assert connected, f"Failed to connect to server:{tunnel_port}"
 
@@ -95,7 +99,11 @@ class TestDataQuality:
 
         # Start echo server on backend port
         echo_port = portConfig.serverToClient1Tun2ConnectPort
-        echo_server = UtilTcpSocket("echo_backend_2_2", shouldEchoData=True)
+        echo_server = UtilTcpSocket(
+            "echo_backend_2_2",
+            shouldEchoData=True,
+            logTrafficEvents=False,
+        )
         listening = await echo_server.startListen(
             port=echo_port, host="0.0.0.0"
         )
@@ -104,7 +112,7 @@ class TestDataQuality:
         try:
             # Connect to tunnel endpoint
             tunnel_port = portConfig.serverToClientTun2ListenPort
-            conn = UtilTcpSocket("test_3_2")
+            conn = UtilTcpSocket("test_3_2", logTrafficEvents=False)
             connected = await conn.startConnect("server", tunnel_port)
             assert connected, f"Failed to connect to server:{tunnel_port}"
 
@@ -148,7 +156,11 @@ class TestDataQuality:
 
         # Start echo server on shared backend port
         echo_port = portConfig.clientToServerTun1ConnectPort
-        echo_server = UtilTcpSocket("echo_backend_2_3", shouldEchoData=True)
+        echo_server = UtilTcpSocket(
+            "echo_backend_2_3",
+            shouldEchoData=True,
+            logTrafficEvents=False,
+        )
         listening = await echo_server.startListen(
             port=echo_port, host="0.0.0.0"
         )
@@ -157,7 +169,7 @@ class TestDataQuality:
         try:
             # Connect to client1 tunnel endpoint
             tunnel_port = portConfig.client1ToServerTun1ListenPort
-            conn = UtilTcpSocket("test_3_3")
+            conn = UtilTcpSocket("test_3_3", logTrafficEvents=False)
             connected = await conn.startConnect("client1", tunnel_port)
             assert connected, f"Failed to connect to client1:{tunnel_port}"
 
@@ -201,7 +213,11 @@ class TestDataQuality:
 
         # Start echo server on shared backend port
         echo_port = portConfig.clientToServerTun2ConnectPort
-        echo_server = UtilTcpSocket("echo_backend_2_4", shouldEchoData=True)
+        echo_server = UtilTcpSocket(
+            "echo_backend_2_4",
+            shouldEchoData=True,
+            logTrafficEvents=False,
+        )
         listening = await echo_server.startListen(
             port=echo_port, host="0.0.0.0"
         )
@@ -210,7 +226,7 @@ class TestDataQuality:
         try:
             # Connect to client1 tunnel endpoint
             tunnel_port = portConfig.client1ToServerTun2ListenPort
-            conn = UtilTcpSocket("test_3_4")
+            conn = UtilTcpSocket("test_3_4", logTrafficEvents=False)
             connected = await conn.startConnect("client1", tunnel_port)
             assert connected, f"Failed to connect to client1:{tunnel_port}"
 
@@ -259,7 +275,11 @@ class TestDataQuality:
 
         # Start echo server on client2 backend port
         echo_port = portConfig.serverToClient2Tun1ConnectPort
-        echo_server = UtilTcpSocket("echo_backend_2_6", shouldEchoData=True)
+        echo_server = UtilTcpSocket(
+            "echo_backend_2_6",
+            shouldEchoData=True,
+            logTrafficEvents=False,
+        )
         listening = await echo_server.startListen(
             port=echo_port, host="0.0.0.0"
         )
@@ -268,7 +288,7 @@ class TestDataQuality:
         try:
             # Connect to tunnel endpoint
             tunnel_port = portConfig.serverToClientTun1ListenPort
-            conn = UtilTcpSocket("test_3_6")
+            conn = UtilTcpSocket("test_3_6", logTrafficEvents=False)
             connected = await conn.startConnect("server", tunnel_port)
             assert connected, f"Failed to connect to server:{tunnel_port}"
 
@@ -312,7 +332,11 @@ class TestDataQuality:
 
         # Start echo server on client2 backend port
         echo_port = portConfig.serverToClient2Tun2ConnectPort
-        echo_server = UtilTcpSocket("echo_backend_2_7", shouldEchoData=True)
+        echo_server = UtilTcpSocket(
+            "echo_backend_2_7",
+            shouldEchoData=True,
+            logTrafficEvents=False,
+        )
         listening = await echo_server.startListen(
             port=echo_port, host="0.0.0.0"
         )
@@ -321,7 +345,7 @@ class TestDataQuality:
         try:
             # Connect to tunnel endpoint
             tunnel_port = portConfig.serverToClientTun2ListenPort
-            conn = UtilTcpSocket("test_3_7")
+            conn = UtilTcpSocket("test_3_7", logTrafficEvents=False)
             connected = await conn.startConnect("server", tunnel_port)
             assert connected, f"Failed to connect to server:{tunnel_port}"
 
@@ -365,7 +389,11 @@ class TestDataQuality:
 
         # Start echo server on shared backend port
         echo_port = portConfig.clientToServerTun1ConnectPort
-        echo_server = UtilTcpSocket("echo_backend_2_8", shouldEchoData=True)
+        echo_server = UtilTcpSocket(
+            "echo_backend_2_8",
+            shouldEchoData=True,
+            logTrafficEvents=False,
+        )
         listening = await echo_server.startListen(
             port=echo_port, host="0.0.0.0"
         )
@@ -374,7 +402,7 @@ class TestDataQuality:
         try:
             # Connect to client2 tunnel endpoint
             tunnel_port = portConfig.client2ToServerTun1ListenPort
-            conn = UtilTcpSocket("test_3_8")
+            conn = UtilTcpSocket("test_3_8", logTrafficEvents=False)
             connected = await conn.startConnect("client2", tunnel_port)
             assert connected, f"Failed to connect to client2:{tunnel_port}"
 
@@ -418,7 +446,11 @@ class TestDataQuality:
 
         # Start echo server on shared backend port
         echo_port = portConfig.clientToServerTun2ConnectPort
-        echo_server = UtilTcpSocket("echo_backend_2_9", shouldEchoData=True)
+        echo_server = UtilTcpSocket(
+            "echo_backend_2_9",
+            shouldEchoData=True,
+            logTrafficEvents=False,
+        )
         listening = await echo_server.startListen(
             port=echo_port, host="0.0.0.0"
         )
@@ -427,7 +459,7 @@ class TestDataQuality:
         try:
             # Connect to client2 tunnel endpoint
             tunnel_port = portConfig.client2ToServerTun2ListenPort
-            conn = UtilTcpSocket("test_3_9")
+            conn = UtilTcpSocket("test_3_9", logTrafficEvents=False)
             connected = await conn.startConnect("client2", tunnel_port)
             assert connected, f"Failed to connect to client2:{tunnel_port}"
 

@@ -17,88 +17,13 @@ from util_socket_methods import (
     triggerFailoverBackToClient1,
 )
 from util_port_config import get_port_config
-from util_tcp_socket import ConnectionEndState, UtilTcpSocket
+from util_tcp_socket import UtilTcpSocket
+from tests.util_data_send_ensure_receive_connection import (
+    UtilDataSendEnsureReceivedConnection,
+)
 from util_data_methods import generateDeterministicData, calculateSha256
 
 logger = logging.getLogger(__name__)
-
-
-class ConcurrentTransfer:
-    """Helper class for concurrent connection transfer"""
-
-    def __init__(
-        self, conn: UtilTcpSocket, data: bytes, transfer_id: int, clientId: int = 0
-    ):
-        self.conn = conn
-        self.data = data
-        self.transferId = transfer_id
-        self.clientId = clientId
-        self.receivedData = bytearray()
-        self.sendComplete = False
-        self.receiveComplete = False
-        self.startTime = 0
-        self.endTime = 0
-        self.success = False
-
-    async def startTransfer(self) -> tuple[bool, bytes, float]:
-        """Start transfer and return (success, received_data, throughput_mbps)"""
-        self.startTime = time.time()
-
-        sendTask = asyncio.create_task(self._sendData())
-        receiveTask = asyncio.create_task(self._receiveData())
-
-        try:
-            await asyncio.gather(sendTask, receiveTask)
-        except Exception as e:
-            logger.error(f"Transfer {self.transferId} failed: {e}")
-            return False, b"", 0.0
-
-        self.endTime = time.time()
-
-        totalBytes = len(self.data) * 2
-        duration = self.endTime - self.startTime
-        throughputMbps = (totalBytes / (1024 * 1024)) / duration if duration > 0 else 0
-
-        self.success = self.sendComplete and self.receiveComplete
-        return self.success, bytes(self.receivedData), throughputMbps
-
-    async def _sendData(self):
-        """Send data in chunks"""
-        chunkSize = 64 * 1024
-        sentBytes = 0
-
-        while sentBytes < len(self.data):
-            endPos = min(sentBytes + chunkSize, len(self.data))
-            chunk = self.data[sentBytes:endPos]
-
-            if not await self.conn.write(chunk, clientId=self.clientId):
-                logger.error(
-                    f"Transfer {self.transferId}: Failed to send chunk at offset {sentBytes}"
-                )
-                return
-
-            sentBytes += len(chunk)
-
-        self.sendComplete = True
-
-    async def _receiveData(self):
-        """Receive data until we get all expected bytes"""
-        expectedBytes = len(self.data)
-
-        while len(self.receivedData) < expectedBytes:
-            remaining = expectedBytes - len(self.receivedData)
-            chunkSize = min(64 * 1024, remaining)
-
-            chunk = await self.conn.read(chunkSize, clientId=self.clientId, timeout=60.0)
-            if not chunk:
-                logger.error(
-                    f"Transfer {self.transferId}: Failed to receive data at offset {len(self.receivedData)}"
-                )
-                return
-
-            self.receivedData.extend(chunk)
-
-        self.receiveComplete = True
 
 
 def generateTransferSizes(count: int, minSize: int, maxSize: int) -> list[int]:
@@ -154,7 +79,11 @@ class TestMaximumPunishment:
 
         # Start echo server
         echoPort = portConfig.clientToServerTun1ConnectPort
-        echoServer = UtilTcpSocket("echo_backend_6_1", shouldEchoData=True)
+        echoServer = UtilTcpSocket(
+            "echo_backend_6_1",
+            shouldEchoData=True,
+            logTrafficEvents=False,
+        )
         listening = await echoServer.startListen(port=echoPort, host="0.0.0.0")
         assert listening, f"Failed to start echo server on port {echoPort}"
 
@@ -164,10 +93,14 @@ class TestMaximumPunishment:
             # Create all connections upfront
             connections = []
             for i in range(numConnections):
-                conn = UtilTcpSocket(f"test_7_1_conn_{i}")
+                conn = UtilTcpSocket(
+                    f"test_7_1_conn_{i}", logTrafficEvents=False
+                )
                 connected = await conn.startConnect("client1", tunnelPort)
                 if not connected:
-                    logger.warning(f"Test 7.1: Connection {i} failed to connect")
+                    logger.warning(
+                        f"Test 7.1: Connection {i} failed to connect"
+                    )
                     await conn.close()
                     continue
                 connections.append(conn)
@@ -179,9 +112,14 @@ class TestMaximumPunishment:
             try:
                 # Generate test data and create transfers
                 transfers = []
-                for i, (conn, size) in enumerate(zip(connections, transferSizes)):
+                for i, (conn, size) in enumerate(
+                    zip(connections, transferSizes)
+                ):
                     testData = generateDeterministicData(size, seed=6001 + i)
-                    transfer = ConcurrentTransfer(conn, testData, i)
+                    transfer = UtilDataSendEnsureReceivedConnection(
+                        f"transfer_{i}", testData, timeout=600.0
+                    )
+                    transfer.setConnection(conn)
                     transfers.append(transfer)
 
                 # Run transfers with concurrency limit
@@ -189,10 +127,12 @@ class TestMaximumPunishment:
 
                 async def limitedTransfer(transfer):
                     async with semaphore:
-                        return await transfer.startTransfer()
+                        return await transfer.executeTransfer()
 
                 startTime = time.time()
-                results = await asyncio.gather(*[limitedTransfer(t) for t in transfers])
+                results = await asyncio.gather(
+                    *[limitedTransfer(t) for t in transfers]
+                )
                 endTime = time.time()
 
                 # Validate results
@@ -200,7 +140,9 @@ class TestMaximumPunishment:
                 validatedCount = 0
                 totalThroughput = 0
 
-                for i, (success, receivedData, throughput) in enumerate(results):
+                for i, (success, receivedData, throughput) in enumerate(
+                    results
+                ):
                     transfer = transfers[i]
                     size = transferSizes[i]
 
@@ -216,6 +158,13 @@ class TestMaximumPunishment:
                         )
                         continue
 
+                    # Validate data content matches
+                    if receivedData != transfer.data:
+                        logger.warning(
+                            f"Test 7.1: Transfer {i} data content mismatch"
+                        )
+                        continue
+
                     successCount += 1
 
                     # Only validate checksums for transfers 5MB or smaller
@@ -223,14 +172,18 @@ class TestMaximumPunishment:
                         expectedChecksum = calculateSha256(transfer.data)
                         actualChecksum = calculateSha256(receivedData)
                         if actualChecksum != expectedChecksum:
-                            logger.warning(f"Test 7.1: Transfer {i} checksum mismatch")
+                            logger.warning(
+                                f"Test 7.1: Transfer {i} checksum mismatch"
+                            )
                             continue
                         validatedCount += 1
 
                     totalThroughput += throughput
 
                 duration = endTime - startTime
-                overallThroughput = ((totalDataSize * 2) / (1024 * 1024)) / duration
+                overallThroughput = (
+                    (totalDataSize * 2) / (1024 * 1024)
+                ) / duration
 
                 logger.info(
                     f"Test 7.1: {successCount}/{len(transfers)} transfers successful"
@@ -244,7 +197,7 @@ class TestMaximumPunishment:
                 )
 
                 assert (
-                    successCount >= 95
+                    successCount >= 100
                 ), f"Only {successCount}/{len(transfers)} transfers succeeded"
 
             finally:
@@ -272,7 +225,11 @@ class TestMaximumPunishment:
 
         # Start echo server
         echoPort = portConfig.serverToClient1Tun1ConnectPort
-        echoServer = UtilTcpSocket("echo_backend_6_2", shouldEchoData=True)
+        echoServer = UtilTcpSocket(
+            "echo_backend_6_2",
+            shouldEchoData=True,
+            logTrafficEvents=False,
+        )
         listening = await echoServer.startListen(port=echoPort, host="0.0.0.0")
         assert listening, f"Failed to start echo server on port {echoPort}"
 
@@ -282,10 +239,14 @@ class TestMaximumPunishment:
             # Create all connections upfront
             connections = []
             for i in range(numConnections):
-                conn = UtilTcpSocket(f"test_7_2_conn_{i}")
+                conn = UtilTcpSocket(
+                    f"test_7_2_conn_{i}", logTrafficEvents=False
+                )
                 connected = await conn.startConnect("server", tunnelPort)
                 if not connected:
-                    logger.warning(f"Test 7.2: Connection {i} failed to connect")
+                    logger.warning(
+                        f"Test 7.2: Connection {i} failed to connect"
+                    )
                     await conn.close()
                     continue
                 connections.append(conn)
@@ -297,9 +258,14 @@ class TestMaximumPunishment:
             try:
                 # Generate test data and create transfers
                 transfers = []
-                for i, (conn, size) in enumerate(zip(connections, transferSizes)):
+                for i, (conn, size) in enumerate(
+                    zip(connections, transferSizes)
+                ):
                     testData = generateDeterministicData(size, seed=6002 + i)
-                    transfer = ConcurrentTransfer(conn, testData, i)
+                    transfer = UtilDataSendEnsureReceivedConnection(
+                        f"transfer_{i}", testData, timeout=600.0
+                    )
+                    transfer.setConnection(conn)
                     transfers.append(transfer)
 
                 # Run transfers with concurrency limit
@@ -307,10 +273,12 @@ class TestMaximumPunishment:
 
                 async def limitedTransfer(transfer):
                     async with semaphore:
-                        return await transfer.startTransfer()
+                        return await transfer.executeTransfer()
 
                 startTime = time.time()
-                results = await asyncio.gather(*[limitedTransfer(t) for t in transfers])
+                results = await asyncio.gather(
+                    *[limitedTransfer(t) for t in transfers]
+                )
                 endTime = time.time()
 
                 # Validate results
@@ -318,7 +286,9 @@ class TestMaximumPunishment:
                 validatedCount = 0
                 totalThroughput = 0
 
-                for i, (success, receivedData, throughput) in enumerate(results):
+                for i, (success, receivedData, throughput) in enumerate(
+                    results
+                ):
                     transfer = transfers[i]
                     size = transferSizes[i]
 
@@ -334,6 +304,13 @@ class TestMaximumPunishment:
                         )
                         continue
 
+                    # Validate data content matches
+                    if receivedData != transfer.data:
+                        logger.warning(
+                            f"Test 7.2: Transfer {i} data content mismatch"
+                        )
+                        continue
+
                     successCount += 1
 
                     # Only validate checksums for transfers 5MB or smaller
@@ -341,14 +318,18 @@ class TestMaximumPunishment:
                         expectedChecksum = calculateSha256(transfer.data)
                         actualChecksum = calculateSha256(receivedData)
                         if actualChecksum != expectedChecksum:
-                            logger.warning(f"Test 7.2: Transfer {i} checksum mismatch")
+                            logger.warning(
+                                f"Test 7.2: Transfer {i} checksum mismatch"
+                            )
                             continue
                         validatedCount += 1
 
                     totalThroughput += throughput
 
                 duration = endTime - startTime
-                overallThroughput = ((totalDataSize * 2) / (1024 * 1024)) / duration
+                overallThroughput = (
+                    (totalDataSize * 2) / (1024 * 1024)
+                ) / duration
 
                 logger.info(
                     f"Test 7.2: {successCount}/{len(transfers)} transfers successful"
@@ -362,7 +343,7 @@ class TestMaximumPunishment:
                 )
 
                 assert (
-                    successCount >= 95
+                    successCount >= 100
                 ), f"Only {successCount}/{len(transfers)} transfers succeeded"
 
             finally:
@@ -378,7 +359,9 @@ class TestMaximumPunishment:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    async def test_7_4_100_concurrent_transfers_client_to_server_tun1_client2(self):
+    async def test_7_4_100_concurrent_transfers_client_to_server_tun1_client2(
+        self,
+    ):
         """Test 7.4: 100 Concurrent Transfers - Client-to-Server Tunnel 1 (Client 2)"""
         portConfig = get_port_config()
 
@@ -395,7 +378,11 @@ class TestMaximumPunishment:
 
         # Start echo server
         echoPort = portConfig.clientToServerTun1ConnectPort
-        echoServer = UtilTcpSocket("echo_backend_6_4", shouldEchoData=True)
+        echoServer = UtilTcpSocket(
+            "echo_backend_6_4",
+            shouldEchoData=True,
+            logTrafficEvents=False,
+        )
         listening = await echoServer.startListen(port=echoPort, host="0.0.0.0")
         assert listening, f"Failed to start echo server on port {echoPort}"
 
@@ -405,10 +392,14 @@ class TestMaximumPunishment:
             # Create all connections upfront
             connections = []
             for i in range(numConnections):
-                conn = UtilTcpSocket(f"test_7_4_conn_{i}")
+                conn = UtilTcpSocket(
+                    f"test_7_4_conn_{i}", logTrafficEvents=False
+                )
                 connected = await conn.startConnect("client2", tunnelPort)
                 if not connected:
-                    logger.warning(f"Test 7.4: Connection {i} failed to connect")
+                    logger.warning(
+                        f"Test 7.4: Connection {i} failed to connect"
+                    )
                     await conn.close()
                     continue
                 connections.append(conn)
@@ -420,9 +411,14 @@ class TestMaximumPunishment:
             try:
                 # Generate test data and create transfers
                 transfers = []
-                for i, (conn, size) in enumerate(zip(connections, transferSizes)):
+                for i, (conn, size) in enumerate(
+                    zip(connections, transferSizes)
+                ):
                     testData = generateDeterministicData(size, seed=6004 + i)
-                    transfer = ConcurrentTransfer(conn, testData, i)
+                    transfer = UtilDataSendEnsureReceivedConnection(
+                        f"transfer_{i}", testData, timeout=600.0
+                    )
+                    transfer.setConnection(conn)
                     transfers.append(transfer)
 
                 # Run transfers with concurrency limit
@@ -430,10 +426,12 @@ class TestMaximumPunishment:
 
                 async def limitedTransfer(transfer):
                     async with semaphore:
-                        return await transfer.startTransfer()
+                        return await transfer.executeTransfer()
 
                 startTime = time.time()
-                results = await asyncio.gather(*[limitedTransfer(t) for t in transfers])
+                results = await asyncio.gather(
+                    *[limitedTransfer(t) for t in transfers]
+                )
                 endTime = time.time()
 
                 # Validate results
@@ -441,7 +439,9 @@ class TestMaximumPunishment:
                 validatedCount = 0
                 totalThroughput = 0
 
-                for i, (success, receivedData, throughput) in enumerate(results):
+                for i, (success, receivedData, throughput) in enumerate(
+                    results
+                ):
                     transfer = transfers[i]
                     size = transferSizes[i]
 
@@ -457,6 +457,13 @@ class TestMaximumPunishment:
                         )
                         continue
 
+                    # Validate data content matches
+                    if receivedData != transfer.data:
+                        logger.warning(
+                            f"Test 7.4: Transfer {i} data content mismatch"
+                        )
+                        continue
+
                     successCount += 1
 
                     # Only validate checksums for transfers 5MB or smaller
@@ -464,14 +471,18 @@ class TestMaximumPunishment:
                         expectedChecksum = calculateSha256(transfer.data)
                         actualChecksum = calculateSha256(receivedData)
                         if actualChecksum != expectedChecksum:
-                            logger.warning(f"Test 7.4: Transfer {i} checksum mismatch")
+                            logger.warning(
+                                f"Test 7.4: Transfer {i} checksum mismatch"
+                            )
                             continue
                         validatedCount += 1
 
                     totalThroughput += throughput
 
                 duration = endTime - startTime
-                overallThroughput = ((totalDataSize * 2) / (1024 * 1024)) / duration
+                overallThroughput = (
+                    (totalDataSize * 2) / (1024 * 1024)
+                ) / duration
 
                 logger.info(
                     f"Test 7.4: {successCount}/{len(transfers)} transfers successful"
@@ -485,7 +496,7 @@ class TestMaximumPunishment:
                 )
 
                 assert (
-                    successCount >= 95
+                    successCount >= 100
                 ), f"Only {successCount}/{len(transfers)} transfers succeeded"
 
             finally:
@@ -496,7 +507,9 @@ class TestMaximumPunishment:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    async def test_7_5_100_concurrent_transfers_server_to_client_tun1_client2(self):
+    async def test_7_5_100_concurrent_transfers_server_to_client_tun1_client2(
+        self,
+    ):
         """Test 7.5: 100 Concurrent Transfers - Server-to-Client Tunnel 1 (Client 2)"""
         portConfig = get_port_config()
 
@@ -513,7 +526,11 @@ class TestMaximumPunishment:
 
         # Start echo server
         echoPort = portConfig.serverToClient2Tun1ConnectPort
-        echoServer = UtilTcpSocket("echo_backend_6_5", shouldEchoData=True)
+        echoServer = UtilTcpSocket(
+            "echo_backend_6_5",
+            shouldEchoData=True,
+            logTrafficEvents=False,
+        )
         listening = await echoServer.startListen(port=echoPort, host="0.0.0.0")
         assert listening, f"Failed to start echo server on port {echoPort}"
 
@@ -522,10 +539,14 @@ class TestMaximumPunishment:
             tunnelPort = portConfig.serverToClientTun1ListenPort
             connections = []
             for i in range(numConnections):
-                conn = UtilTcpSocket(f"test_7_5_conn_{i}")
+                conn = UtilTcpSocket(
+                    f"test_7_5_conn_{i}", logTrafficEvents=False
+                )
                 connected = await conn.startConnect("server", tunnelPort)
                 if not connected:
-                    logger.warning(f"Test 7.5: Connection {i} failed to connect")
+                    logger.warning(
+                        f"Test 7.5: Connection {i} failed to connect"
+                    )
                     await conn.close()
                     continue
                 connections.append(conn)
@@ -537,9 +558,14 @@ class TestMaximumPunishment:
             try:
                 # Generate test data and create transfers
                 transfers = []
-                for i, (conn, size) in enumerate(zip(connections, transferSizes)):
+                for i, (conn, size) in enumerate(
+                    zip(connections, transferSizes)
+                ):
                     testData = generateDeterministicData(size, seed=6005 + i)
-                    transfer = ConcurrentTransfer(conn, testData, i)
+                    transfer = UtilDataSendEnsureReceivedConnection(
+                        f"transfer_{i}", testData, timeout=600.0
+                    )
+                    transfer.setConnection(conn)
                     transfers.append(transfer)
 
                 # Run transfers with concurrency limit
@@ -547,10 +573,12 @@ class TestMaximumPunishment:
 
                 async def limitedTransfer(transfer):
                     async with semaphore:
-                        return await transfer.startTransfer()
+                        return await transfer.executeTransfer()
 
                 startTime = time.time()
-                results = await asyncio.gather(*[limitedTransfer(t) for t in transfers])
+                results = await asyncio.gather(
+                    *[limitedTransfer(t) for t in transfers]
+                )
                 endTime = time.time()
 
                 # Validate results
@@ -558,7 +586,9 @@ class TestMaximumPunishment:
                 validatedCount = 0
                 totalThroughput = 0
 
-                for i, (success, receivedData, throughput) in enumerate(results):
+                for i, (success, receivedData, throughput) in enumerate(
+                    results
+                ):
                     transfer = transfers[i]
                     size = transferSizes[i]
 
@@ -574,6 +604,13 @@ class TestMaximumPunishment:
                         )
                         continue
 
+                    # Validate data content matches
+                    if receivedData != transfer.data:
+                        logger.warning(
+                            f"Test 7.5: Transfer {i} data content mismatch"
+                        )
+                        continue
+
                     successCount += 1
 
                     # Only validate checksums for transfers 5MB or smaller
@@ -581,14 +618,18 @@ class TestMaximumPunishment:
                         expectedChecksum = calculateSha256(transfer.data)
                         actualChecksum = calculateSha256(receivedData)
                         if actualChecksum != expectedChecksum:
-                            logger.warning(f"Test 7.5: Transfer {i} checksum mismatch")
+                            logger.warning(
+                                f"Test 7.5: Transfer {i} checksum mismatch"
+                            )
                             continue
                         validatedCount += 1
 
                     totalThroughput += throughput
 
                 duration = endTime - startTime
-                overallThroughput = ((totalDataSize * 2) / (1024 * 1024)) / duration
+                overallThroughput = (
+                    (totalDataSize * 2) / (1024 * 1024)
+                ) / duration
 
                 logger.info(
                     f"Test 7.5: {successCount}/{len(transfers)} transfers successful"
@@ -602,7 +643,7 @@ class TestMaximumPunishment:
                 )
 
                 assert (
-                    successCount >= 95
+                    successCount >= 100
                 ), f"Only {successCount}/{len(transfers)} transfers succeeded"
 
             finally:

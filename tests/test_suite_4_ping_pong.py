@@ -15,7 +15,7 @@ from util_socket_methods import (
     triggerFailoverBackToClient1,
 )
 from util_port_config import get_port_config
-from util_tcp_socket import ConnectionEndState, UtilTcpSocket
+from util_tcp_socket import UtilTcpSocket
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,9 @@ class TestPingPong:
         # Start echo server on shared backend port
         echo_port = portConfig.clientToServerTun1ConnectPort
         echo_server = UtilTcpSocket("echo_backend_3_1", shouldEchoData=True)
-        listening = await echo_server.startListen(port=echo_port, host="0.0.0.0")
+        listening = await echo_server.startListen(
+            port=echo_port, host="0.0.0.0"
+        )
         assert listening, f"Failed to start echo server on port {echo_port}"
 
         try:
@@ -69,15 +71,19 @@ class TestPingPong:
                                 success_count += 1
                             else:
                                 logger.warning(
-                                    f"Test 4.1: Iteration {i+1} - received incomplete data"
+                                    f"Test 4.1: Iteration {i + 1} - received incomplete data"
                                 )
                         else:
-                            logger.warning(f"Test 4.1: Iteration {i+1} - write failed")
+                            logger.warning(
+                                f"Test 4.1: Iteration {i + 1} - write failed"
+                            )
 
                         # Wait 10ms between iterations
                         await asyncio.sleep(0.01)
                     except Exception as e:
-                        logger.warning(f"Test 4.1: Iteration {i+1} failed: {e}")
+                        logger.warning(
+                            f"Test 4.1: Iteration {i + 1} failed: {e}"
+                        )
 
                 success_rate = (success_count / 1000) * 100
                 logger.info(
@@ -103,7 +109,9 @@ class TestPingPong:
         # Start echo server on shared backend port
         echo_port = portConfig.clientToServerTun2ConnectPort
         echo_server = UtilTcpSocket("echo_backend_3_2", shouldEchoData=True)
-        listening = await echo_server.startListen(port=echo_port, host="0.0.0.0")
+        listening = await echo_server.startListen(
+            port=echo_port, host="0.0.0.0"
+        )
         assert listening, f"Failed to start echo server on port {echo_port}"
 
         try:
@@ -128,15 +136,19 @@ class TestPingPong:
                                 success_count += 1
                             else:
                                 logger.warning(
-                                    f"Test 4.2: Iteration {i+1} - received incomplete data"
+                                    f"Test 4.2: Iteration {i + 1} - received incomplete data"
                                 )
                         else:
-                            logger.warning(f"Test 4.2: Iteration {i+1} - write failed")
+                            logger.warning(
+                                f"Test 4.2: Iteration {i + 1} - write failed"
+                            )
 
                         # Wait 10ms between iterations
                         await asyncio.sleep(0.01)
                     except Exception as e:
-                        logger.warning(f"Test 4.2: Iteration {i+1} failed: {e}")
+                        logger.warning(
+                            f"Test 4.2: Iteration {i + 1} failed: {e}"
+                        )
 
                 success_rate = (success_count / 1000) * 100
                 logger.info(
@@ -162,7 +174,9 @@ class TestPingPong:
         # Start echo server on backend port
         echo_port = portConfig.serverToClient1Tun1ConnectPort
         echo_server = UtilTcpSocket("echo_backend_3_3", shouldEchoData=True)
-        listening = await echo_server.startListen(port=echo_port, host="0.0.0.0")
+        listening = await echo_server.startListen(
+            port=echo_port, host="0.0.0.0"
+        )
         assert listening, f"Failed to start echo server on port {echo_port}"
 
         try:
@@ -187,15 +201,19 @@ class TestPingPong:
                                 success_count += 1
                             else:
                                 logger.warning(
-                                    f"Test 4.3: Iteration {i+1} - received incomplete data"
+                                    f"Test 4.3: Iteration {i + 1} - received incomplete data"
                                 )
                         else:
-                            logger.warning(f"Test 4.3: Iteration {i+1} - write failed")
+                            logger.warning(
+                                f"Test 4.3: Iteration {i + 1} - write failed"
+                            )
 
                         # Wait 10ms between iterations
                         await asyncio.sleep(0.01)
                     except Exception as e:
-                        logger.warning(f"Test 4.3: Iteration {i+1} failed: {e}")
+                        logger.warning(
+                            f"Test 4.3: Iteration {i + 1} failed: {e}"
+                        )
 
                 success_rate = (success_count / 1000) * 100
                 logger.info(
@@ -221,7 +239,9 @@ class TestPingPong:
         # Start echo server on backend port
         echo_port = portConfig.serverToClient1Tun2ConnectPort
         echo_server = UtilTcpSocket("echo_backend_3_4", shouldEchoData=True)
-        listening = await echo_server.startListen(port=echo_port, host="0.0.0.0")
+        listening = await echo_server.startListen(
+            port=echo_port, host="0.0.0.0"
+        )
         assert listening, f"Failed to start echo server on port {echo_port}"
 
         try:
@@ -246,15 +266,19 @@ class TestPingPong:
                                 success_count += 1
                             else:
                                 logger.warning(
-                                    f"Test 4.4: Iteration {i+1} - received incomplete data"
+                                    f"Test 4.4: Iteration {i + 1} - received incomplete data"
                                 )
                         else:
-                            logger.warning(f"Test 4.4: Iteration {i+1} - write failed")
+                            logger.warning(
+                                f"Test 4.4: Iteration {i + 1} - write failed"
+                            )
 
                         # Wait 10ms between iterations
                         await asyncio.sleep(0.01)
                     except Exception as e:
-                        logger.warning(f"Test 4.4: Iteration {i+1} failed: {e}")
+                        logger.warning(
+                            f"Test 4.4: Iteration {i + 1} failed: {e}"
+                        )
 
                 success_rate = (success_count / 1000) * 100
                 logger.info(
@@ -285,7 +309,9 @@ class TestPingPong:
         # Start echo server on shared backend port
         echo_port = portConfig.clientToServerTun1ConnectPort
         echo_server = UtilTcpSocket("echo_backend_3_6", shouldEchoData=True)
-        listening = await echo_server.startListen(port=echo_port, host="0.0.0.0")
+        listening = await echo_server.startListen(
+            port=echo_port, host="0.0.0.0"
+        )
         assert listening, f"Failed to start echo server on port {echo_port}"
 
         try:
@@ -299,7 +325,9 @@ class TestPingPong:
                 success_count = 0
                 test_packet = generate_test_packet(500, seed=3006)
 
-                logger.info("Test 4.6: Starting 1000 ping-pong iterations (client 2)")
+                logger.info(
+                    "Test 4.6: Starting 1000 ping-pong iterations (client 2)"
+                )
 
                 for i in range(1000):
                     try:
@@ -310,15 +338,19 @@ class TestPingPong:
                                 success_count += 1
                             else:
                                 logger.warning(
-                                    f"Test 4.6: Iteration {i+1} - received incomplete data"
+                                    f"Test 4.6: Iteration {i + 1} - received incomplete data"
                                 )
                         else:
-                            logger.warning(f"Test 4.6: Iteration {i+1} - write failed")
+                            logger.warning(
+                                f"Test 4.6: Iteration {i + 1} - write failed"
+                            )
 
                         # Wait 10ms between iterations
                         await asyncio.sleep(0.01)
                     except Exception as e:
-                        logger.warning(f"Test 4.6: Iteration {i+1} failed: {e}")
+                        logger.warning(
+                            f"Test 4.6: Iteration {i + 1} failed: {e}"
+                        )
 
                 success_rate = (success_count / 1000) * 100
                 logger.info(
@@ -344,7 +376,9 @@ class TestPingPong:
         # Start echo server on shared backend port
         echo_port = portConfig.clientToServerTun2ConnectPort
         echo_server = UtilTcpSocket("echo_backend_3_7", shouldEchoData=True)
-        listening = await echo_server.startListen(port=echo_port, host="0.0.0.0")
+        listening = await echo_server.startListen(
+            port=echo_port, host="0.0.0.0"
+        )
         assert listening, f"Failed to start echo server on port {echo_port}"
 
         try:
@@ -358,7 +392,9 @@ class TestPingPong:
                 success_count = 0
                 test_packet = generate_test_packet(500, seed=3007)
 
-                logger.info("Test 4.7: Starting 1000 ping-pong iterations (client 2)")
+                logger.info(
+                    "Test 4.7: Starting 1000 ping-pong iterations (client 2)"
+                )
 
                 for i in range(1000):
                     try:
@@ -369,15 +405,19 @@ class TestPingPong:
                                 success_count += 1
                             else:
                                 logger.warning(
-                                    f"Test 4.7: Iteration {i+1} - received incomplete data"
+                                    f"Test 4.7: Iteration {i + 1} - received incomplete data"
                                 )
                         else:
-                            logger.warning(f"Test 4.7: Iteration {i+1} - write failed")
+                            logger.warning(
+                                f"Test 4.7: Iteration {i + 1} - write failed"
+                            )
 
                         # Wait 10ms between iterations
                         await asyncio.sleep(0.01)
                     except Exception as e:
-                        logger.warning(f"Test 4.7: Iteration {i+1} failed: {e}")
+                        logger.warning(
+                            f"Test 4.7: Iteration {i + 1} failed: {e}"
+                        )
 
                 success_rate = (success_count / 1000) * 100
                 logger.info(
@@ -403,7 +443,9 @@ class TestPingPong:
         # Start echo server on client2 backend port
         echo_port = portConfig.serverToClient2Tun1ConnectPort
         echo_server = UtilTcpSocket("echo_backend_3_8", shouldEchoData=True)
-        listening = await echo_server.startListen(port=echo_port, host="0.0.0.0")
+        listening = await echo_server.startListen(
+            port=echo_port, host="0.0.0.0"
+        )
         assert listening, f"Failed to start echo server on port {echo_port}"
 
         try:
@@ -417,7 +459,9 @@ class TestPingPong:
                 success_count = 0
                 test_packet = generate_test_packet(500, seed=3008)
 
-                logger.info("Test 4.8: Starting 1000 ping-pong iterations (client 2)")
+                logger.info(
+                    "Test 4.8: Starting 1000 ping-pong iterations (client 2)"
+                )
 
                 for i in range(1000):
                     try:
@@ -428,15 +472,19 @@ class TestPingPong:
                                 success_count += 1
                             else:
                                 logger.warning(
-                                    f"Test 4.8: Iteration {i+1} - received incomplete data"
+                                    f"Test 4.8: Iteration {i + 1} - received incomplete data"
                                 )
                         else:
-                            logger.warning(f"Test 4.8: Iteration {i+1} - write failed")
+                            logger.warning(
+                                f"Test 4.8: Iteration {i + 1} - write failed"
+                            )
 
                         # Wait 10ms between iterations
                         await asyncio.sleep(0.01)
                     except Exception as e:
-                        logger.warning(f"Test 4.8: Iteration {i+1} failed: {e}")
+                        logger.warning(
+                            f"Test 4.8: Iteration {i + 1} failed: {e}"
+                        )
 
                 success_rate = (success_count / 1000) * 100
                 logger.info(
@@ -462,7 +510,9 @@ class TestPingPong:
         # Start echo server on client2 backend port
         echo_port = portConfig.serverToClient2Tun2ConnectPort
         echo_server = UtilTcpSocket("echo_backend_3_9", shouldEchoData=True)
-        listening = await echo_server.startListen(port=echo_port, host="0.0.0.0")
+        listening = await echo_server.startListen(
+            port=echo_port, host="0.0.0.0"
+        )
         assert listening, f"Failed to start echo server on port {echo_port}"
 
         try:
@@ -476,7 +526,9 @@ class TestPingPong:
                 success_count = 0
                 test_packet = generate_test_packet(500, seed=3009)
 
-                logger.info("Test 4.9: Starting 1000 ping-pong iterations (client 2)")
+                logger.info(
+                    "Test 4.9: Starting 1000 ping-pong iterations (client 2)"
+                )
 
                 for i in range(1000):
                     try:
@@ -487,15 +539,19 @@ class TestPingPong:
                                 success_count += 1
                             else:
                                 logger.warning(
-                                    f"Test 4.9: Iteration {i+1} - received incomplete data"
+                                    f"Test 4.9: Iteration {i + 1} - received incomplete data"
                                 )
                         else:
-                            logger.warning(f"Test 4.9: Iteration {i+1} - write failed")
+                            logger.warning(
+                                f"Test 4.9: Iteration {i + 1} - write failed"
+                            )
 
                         # Wait 10ms between iterations
                         await asyncio.sleep(0.01)
                     except Exception as e:
-                        logger.warning(f"Test 4.9: Iteration {i+1} failed: {e}")
+                        logger.warning(
+                            f"Test 4.9: Iteration {i + 1} failed: {e}"
+                        )
 
                 success_rate = (success_count / 1000) * 100
                 logger.info(

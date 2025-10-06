@@ -15,7 +15,7 @@ from util_socket_methods import (
     triggerFailoverBackToClient1,
 )
 from util_port_config import get_port_config
-from util_tcp_socket import ConnectionEndState, UtilTcpSocket
+from util_tcp_socket import UtilTcpSocket
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,9 @@ class TestConcurrentConnections:
         echo_port = portConfig.clientToServerTun1ConnectPort
         echo_server = UtilTcpSocket("echo_backend_4_1", shouldEchoData=True)
         echo_server.setOnClientConnected(on_client_connected)
-        listening = await echo_server.startListen(port=echo_port, host="0.0.0.0")
+        listening = await echo_server.startListen(
+            port=echo_port, host="0.0.0.0"
+        )
         assert listening, f"Failed to start echo server on port {echo_port}"
 
         try:
@@ -67,7 +69,9 @@ class TestConcurrentConnections:
                 if connected:
                     connections.append((conn, i))
                 else:
-                    logger.warning(f"Test 5.1: Connection {i} failed to connect")
+                    logger.warning(
+                        f"Test 5.1: Connection {i} failed to connect"
+                    )
                     await conn.close()
 
             logger.info(
@@ -89,7 +93,9 @@ class TestConcurrentConnections:
                             and len(received_data) == len(test_data)
                             and received_data == test_data
                         ):
-                            logger.debug(f"Test 5.1: Connection {conn_id} successful")
+                            logger.debug(
+                                f"Test 5.1: Connection {conn_id} successful"
+                            )
                             return True
                         else:
                             if not success:
@@ -106,7 +112,9 @@ class TestConcurrentConnections:
                                 )
                             return False
                     except Exception as e:
-                        logger.warning(f"Test 5.1: Connection {conn_id} exception: {e}")
+                        logger.warning(
+                            f"Test 5.1: Connection {conn_id} exception: {e}"
+                        )
                         return False
 
                 # Test all connections concurrently
@@ -148,7 +156,9 @@ class TestConcurrentConnections:
         echo_port = portConfig.serverToClient1Tun1ConnectPort
         echo_server = UtilTcpSocket("echo_backend_4_2", shouldEchoData=True)
         echo_server.setOnClientConnected(on_client_connected)
-        listening = await echo_server.startListen(port=echo_port, host="0.0.0.0")
+        listening = await echo_server.startListen(
+            port=echo_port, host="0.0.0.0"
+        )
         assert listening, f"Failed to start echo server on port {echo_port}"
 
         try:
@@ -163,7 +173,9 @@ class TestConcurrentConnections:
                 if connected:
                     connections.append((conn, i))
                 else:
-                    logger.warning(f"Test 5.2: Connection {i} failed to connect")
+                    logger.warning(
+                        f"Test 5.2: Connection {i} failed to connect"
+                    )
                     await conn.close()
 
             logger.info(
@@ -185,7 +197,9 @@ class TestConcurrentConnections:
                             and len(received_data) == len(test_data)
                             and received_data == test_data
                         ):
-                            logger.debug(f"Test 5.2: Connection {conn_id} successful")
+                            logger.debug(
+                                f"Test 5.2: Connection {conn_id} successful"
+                            )
                             return True
                         else:
                             if not success:
@@ -202,7 +216,9 @@ class TestConcurrentConnections:
                                 )
                             return False
                     except Exception as e:
-                        logger.warning(f"Test 5.2: Connection {conn_id} exception: {e}")
+                        logger.warning(
+                            f"Test 5.2: Connection {conn_id} exception: {e}"
+                        )
                         return False
 
                 # Test all connections concurrently
@@ -236,7 +252,9 @@ class TestConcurrentConnections:
         # Start echo server on shared backend port
         echo_port = portConfig.clientToServerTun1ConnectPort
         echo_server = UtilTcpSocket("echo_backend_4_3", shouldEchoData=True)
-        listening = await echo_server.startListen(port=echo_port, host="0.0.0.0")
+        listening = await echo_server.startListen(
+            port=echo_port, host="0.0.0.0"
+        )
         assert listening, f"Failed to start echo server on port {echo_port}"
 
         try:
@@ -249,7 +267,9 @@ class TestConcurrentConnections:
                     # Connect
                     connected = await conn.startConnect("client1", tunnel_port)
                     if not connected:
-                        logger.warning(f"Test 5.3: Cycle {i+1} failed to connect")
+                        logger.warning(
+                            f"Test 5.3: Cycle {i + 1} failed to connect"
+                        )
                         continue
 
                     # Send data
@@ -261,12 +281,14 @@ class TestConcurrentConnections:
                     # Validate
                     if success and len(received_data) == len(test_data):
                         success_count += 1
-                        logger.debug(f"Test 5.3: Cycle {i+1} successful")
+                        logger.debug(f"Test 5.3: Cycle {i + 1} successful")
                     else:
-                        logger.warning(f"Test 5.3: Cycle {i+1} failed validation")
+                        logger.warning(
+                            f"Test 5.3: Cycle {i + 1} failed validation"
+                        )
 
                 except Exception as e:
-                    logger.warning(f"Test 5.3: Cycle {i+1} exception: {e}")
+                    logger.warning(f"Test 5.3: Cycle {i + 1} exception: {e}")
                 finally:
                     # Always close connection
                     await conn.close()
@@ -303,7 +325,9 @@ class TestConcurrentConnections:
         echo_port = portConfig.clientToServerTun1ConnectPort
         echo_server = UtilTcpSocket("echo_backend_4_5", shouldEchoData=True)
         echo_server.setOnClientConnected(on_client_connected)
-        listening = await echo_server.startListen(port=echo_port, host="0.0.0.0")
+        listening = await echo_server.startListen(
+            port=echo_port, host="0.0.0.0"
+        )
         assert listening, f"Failed to start echo server on port {echo_port}"
 
         try:
@@ -318,7 +342,9 @@ class TestConcurrentConnections:
                 if connected:
                     connections.append((conn, i))
                 else:
-                    logger.warning(f"Test 5.5: Connection {i} failed to connect")
+                    logger.warning(
+                        f"Test 5.5: Connection {i} failed to connect"
+                    )
                     await conn.close()
 
             logger.info(
@@ -340,7 +366,9 @@ class TestConcurrentConnections:
                             and len(received_data) == len(test_data)
                             and received_data == test_data
                         ):
-                            logger.debug(f"Test 5.5: Connection {conn_id} successful")
+                            logger.debug(
+                                f"Test 5.5: Connection {conn_id} successful"
+                            )
                             return True
                         else:
                             if not success:
@@ -357,7 +385,9 @@ class TestConcurrentConnections:
                                 )
                             return False
                     except Exception as e:
-                        logger.warning(f"Test 5.5: Connection {conn_id} exception: {e}")
+                        logger.warning(
+                            f"Test 5.5: Connection {conn_id} exception: {e}"
+                        )
                         return False
 
                 # Test all connections concurrently
@@ -399,7 +429,9 @@ class TestConcurrentConnections:
         echo_port = portConfig.serverToClient2Tun1ConnectPort
         echo_server = UtilTcpSocket("echo_backend_4_6", shouldEchoData=True)
         echo_server.setOnClientConnected(on_client_connected)
-        listening = await echo_server.startListen(port=echo_port, host="0.0.0.0")
+        listening = await echo_server.startListen(
+            port=echo_port, host="0.0.0.0"
+        )
         assert listening, f"Failed to start echo server on port {echo_port}"
 
         try:
@@ -414,7 +446,9 @@ class TestConcurrentConnections:
                 if connected:
                     connections.append((conn, i))
                 else:
-                    logger.warning(f"Test 5.6: Connection {i} failed to connect")
+                    logger.warning(
+                        f"Test 5.6: Connection {i} failed to connect"
+                    )
                     await conn.close()
 
             logger.info(
@@ -436,7 +470,9 @@ class TestConcurrentConnections:
                             and len(received_data) == len(test_data)
                             and received_data == test_data
                         ):
-                            logger.debug(f"Test 5.6: Connection {conn_id} successful")
+                            logger.debug(
+                                f"Test 5.6: Connection {conn_id} successful"
+                            )
                             return True
                         else:
                             if not success:
@@ -453,7 +489,9 @@ class TestConcurrentConnections:
                                 )
                             return False
                     except Exception as e:
-                        logger.warning(f"Test 5.6: Connection {conn_id} exception: {e}")
+                        logger.warning(
+                            f"Test 5.6: Connection {conn_id} exception: {e}"
+                        )
                         return False
 
                 # Test all connections concurrently
@@ -487,7 +525,9 @@ class TestConcurrentConnections:
         # Start echo server on shared backend port
         echo_port = portConfig.clientToServerTun1ConnectPort
         echo_server = UtilTcpSocket("echo_backend_4_7", shouldEchoData=True)
-        listening = await echo_server.startListen(port=echo_port, host="0.0.0.0")
+        listening = await echo_server.startListen(
+            port=echo_port, host="0.0.0.0"
+        )
         assert listening, f"Failed to start echo server on port {echo_port}"
 
         try:
@@ -500,7 +540,9 @@ class TestConcurrentConnections:
                     # Connect
                     connected = await conn.startConnect("client2", tunnel_port)
                     if not connected:
-                        logger.warning(f"Test 5.7: Cycle {i+1} failed to connect")
+                        logger.warning(
+                            f"Test 5.7: Cycle {i + 1} failed to connect"
+                        )
                         continue
 
                     # Send data
@@ -512,12 +554,14 @@ class TestConcurrentConnections:
                     # Validate
                     if success and len(received_data) == len(test_data):
                         success_count += 1
-                        logger.debug(f"Test 5.7: Cycle {i+1} successful")
+                        logger.debug(f"Test 5.7: Cycle {i + 1} successful")
                     else:
-                        logger.warning(f"Test 5.7: Cycle {i+1} failed validation")
+                        logger.warning(
+                            f"Test 5.7: Cycle {i + 1} failed validation"
+                        )
 
                 except Exception as e:
-                    logger.warning(f"Test 5.7: Cycle {i+1} exception: {e}")
+                    logger.warning(f"Test 5.7: Cycle {i + 1} exception: {e}")
                 finally:
                     # Always close connection
                     await conn.close()

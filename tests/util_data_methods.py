@@ -8,7 +8,7 @@ def generateDeterministicData(sizeBytes: int, seed: int = 12345) -> bytes:
         for i in range(sizeBytes):
             data[i] = (seed + i) % 256
         return bytes(data)
-    
+
     # For larger data, use chunking approach for better memory efficiency
     chunkSize = 1024 * 1024  # 1MB chunks
     data = bytearray(sizeBytes)
@@ -20,11 +20,11 @@ def generateDeterministicData(sizeBytes: int, seed: int = 12345) -> bytes:
         # Generate chunk pattern more efficiently
         pattern = bytes((seed + i + j) % 256 for j in range(min(256, chunkLen)))
         patternLen = len(pattern)
-        
+
         # Fill chunk by repeating pattern
         for j in range(0, chunkLen, patternLen):
             copyLen = min(patternLen, chunkLen - j)
-            data[i + j:i + j + copyLen] = pattern[:copyLen]
+            data[i + j : i + j + copyLen] = pattern[:copyLen]
 
     return bytes(data)
 
