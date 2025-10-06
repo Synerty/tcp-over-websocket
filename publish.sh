@@ -69,8 +69,8 @@ rm -rf dist *.egg-info
 python setup.py sdist --format=gztar
 
 if [ ${PYPI_PUBLISH} == "1" -a ${DEVBUILD} -eq 0 ]; then
-    echo "Publishing ${PIP_PACKAGE} to PyPI"
-    twine upload dist/${PIP_PACKAGE}-${VER}.tar.gz
+    echo "Publishing ${PY_PACKAGE} to PyPI"
+    twine upload dist/${PY_PACKAGE}-${VER}.tar.gz
 fi
 
 #------------------------------------------------------------------------------
@@ -86,10 +86,10 @@ if [ $HAS_GIT ]; then
     git reset --hard
 
     if [ ${DEVBUILD} -eq 0 ]; then
-        echo "Tagging ${PIP_PACKAGE}"
+        echo "Tagging ${PY_PACKAGE}"
         git tag ${VER}
 
-        echo "Pushing ${PIP_PACKAGE} to BitBucket"
+        echo "Pushing ${PY_PACKAGE} to BitBucket"
         git push
         git push --tags
     fi
