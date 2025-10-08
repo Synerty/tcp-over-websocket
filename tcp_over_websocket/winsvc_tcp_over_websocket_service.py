@@ -38,6 +38,12 @@ class _Service(win32serviceutil.ServiceFramework):
 
             reactor.callLater(1, self._notifyOfStart)
 
+            from tcp_over_websocket.run_tcp_over_websocket_service import (
+                setupLogging,
+            )
+
+            setupLogging()
+
             from tcp_over_websocket import run_tcp_over_websocket_service
 
             run_tcp_over_websocket_service.main()
